@@ -42,8 +42,6 @@ release/youtube-frame-grab-alpha-v0.1.0.zip
 
 ## Technical Architecture
 
-### Mermaid Diagram
-
 ```mermaid
 flowchart TD
     subgraph Extension["Chrome Extension (MV3)"]
