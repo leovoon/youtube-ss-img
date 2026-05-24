@@ -45,18 +45,6 @@ release/youtube-frame-grab-alpha-v0.1.0.zip
 5. Open a YouTube video
 6. Click extension icon and capture frames
 
-## Chrome Web Store alpha package
-
-Upload:
-
-```text
-release/youtube-frame-grab-alpha-v0.1.0.zip
-```
-
-Store assets live in `store-assets/`.
-
-See `CHROME_WEB_STORE_ALPHA.md` for listing copy and submission checklist.
-
 ## Privacy
 
 See `PRIVACY.md`. Captured frames stay local in Chrome extension storage unless user exports/downloads them.
