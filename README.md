@@ -4,7 +4,7 @@ Alpha Chrome extension for capturing frames from YouTube videos and exporting th
 
 | Capture frames | Export collage |
 | --- | --- |
-| <img src="docs/images/screenshot1.png" alt="YouTube Frame Grab capture screenshot" width="400"> | <img src="docs/images/screenshot2.jpg" alt="YouTube Frame Grab collage screenshot" width="400"> |
+| <img src="docs/images/screenshot1.png" alt="YouTube Frame Grab capture screenshot" height="300"> | <img src="docs/images/screenshot2.jpg" alt="YouTube Frame Grab collage screenshot" height="300"> |
 
 ## Alpha features
 
