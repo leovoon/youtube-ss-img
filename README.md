@@ -40,6 +40,57 @@ extension/app_bg.wasm
 release/youtube-frame-grab-alpha-v0.1.0.zip
 ```
 
+## Technical Architecture
+
+### Mermaid Diagram
+
+```mermaid
+flowchart TD
+    subgraph Extension["Chrome Extension (MV3)"]
+        M["manifest.json
+(entrypoint)"]
+        P["popup.html + popup.js
+(host)"]
+        B["background.js
+(service worker)"]
+        C["content.js
+(injected)"]
+        YT["YouTube
+video tag"]
+    end
+
+    subgraph WASM["Rust/WASM (Yew UI)"]
+        APP["App (lib.rs)
+• Grab Frame
+• Save PNG/JPEG
+• Clear All
+• Drag reorder
+• Delete one"]
+        WB["window bridge
+captureYoutubeFrame()
+loadYoutubeFrames()
+storeYoutubeFrames()
+clearYoutubeFrames()
+exportYoutubeFrames()"]
+    end
+
+    subgraph Storage["chrome.storage.local"]
+        STORAGE["youtube-frame-grab.frames[]
+[{url, width, height}, ...]"]
+    end
+
+    M -->|click icon| P
+    B -->|keyboard shortcut| C
+    C -->|capture frame| YT
+    YT -->|canvas.draw
+toDataURL| C
+    C -->|sendMessage| P
+    P -->|grab/save/clear| APP
+    APP -->|calls| WB
+    WB -->|store frames| STORAGE
+    STORAGE <--> WB
+```
+
 ## Local install
 
 1. Open `chrome://extensions`
