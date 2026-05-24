@@ -1,0 +1,27 @@
+[package]
+name = "youtube-ss-img"
+version = "0.1.0"
+edition = "2021"
+description = "Chrome extension for capturing YouTube video frames and exporting collages."
+repository = "https://github.com/leovoon/youtube-ss-img"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+yew = { version = "0.20", features = ["csr"] }
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+serde-wasm-bindgen = "0.4"
+gloo = "0.8"
+console_error_panic_hook = "0.1"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+web-sys = { version = "0.3", features = ["HtmlCanvasElement", "CanvasRenderingContext2d", "ImageData", "Blob", "Url", "HtmlAnchorElement", "HtmlImageElement", "Element", "DomParser"] }
+js-sys = "0.3"
+
+[profile.release]
+opt-level = "s"
+lto = true

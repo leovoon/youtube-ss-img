@@ -1,0 +1,10 @@
+{
+  "name": "youtube-frame-grab",
+  "version": "0.1.0-alpha",
+  "private": true,
+  "scripts": {
+    "build": "node build.js",
+    "check": "cargo check --target wasm32-unknown-unknown",
+    "package": "node build.js"
+  }
+}

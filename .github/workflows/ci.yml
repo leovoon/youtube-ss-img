@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: jetli/wasm-pack-action@v0.4.0
+        with:
+          version: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: cargo check --target wasm32-unknown-unknown
+      - run: node build.js
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chrome-alpha-package
+          path: release/youtube-frame-grab-alpha-v0.1.0.zip
