@@ -8,7 +8,7 @@ Alpha Chrome extension for capturing frames from YouTube videos and exporting th
 
 ## Alpha features
 
-- Capture current YouTube video frame from popup
+- Capture current YouTube video frame from popup (includes visible closed captions)
 - Keyboard capture: `Ctrl+Shift+G` / `Cmd+Shift+G`
 - Keep captured frames across popup close/reopen
 - Delete individual frames
@@ -52,7 +52,7 @@ flowchart TD
         B["background.js
 (service worker)"]
         C["content.js
-(injected)"]
+(injected, captions)"]
         YT["YouTube
 video tag"]
     end
@@ -80,6 +80,8 @@ exportYoutubeFrames()"]
     M -->|click icon| P
     B -->|keyboard shortcut| C
     C -->|capture frame| YT
+    C -->|read caption DOM
+overlay on canvas| C
     YT -->|canvas.draw
 toDataURL| C
     C -->|sendMessage| P
