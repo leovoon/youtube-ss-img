@@ -24,6 +24,7 @@
     "activeTab",
     "scripting",
     "storage",
+    "sidePanel",
     "unlimitedStorage"
   ],
   "host_permissions": [
@@ -33,6 +34,9 @@
     "matches": ["https://*.youtube.com/*"],
     "js": ["content.js"]
   }],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
   "background": {
     "service_worker": "background.js"
   },

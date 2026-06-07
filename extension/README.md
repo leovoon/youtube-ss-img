@@ -2,9 +2,13 @@
 
 Alpha Chrome extension for capturing frames from YouTube videos and exporting them as a vertical collage.
 
+| Capture frames | Export collage |
+| --- | --- |
+| <img src="docs/images/screenshot1.png" alt="YouTube Frame Grab capture screenshot" height="300"> | <img src="docs/images/screenshot2.jpg" alt="YouTube Frame Grab collage screenshot" height="300"> |
+
 ## Alpha features
 
-- Capture current YouTube video frame from popup
+- Capture current YouTube video frame from popup (includes visible closed captions)
 - Keyboard capture: `Ctrl+Shift+G` / `Cmd+Shift+G`
 - Keep captured frames across popup close/reopen
 - Delete individual frames
@@ -36,6 +40,57 @@ extension/app_bg.wasm
 release/youtube-frame-grab-alpha-v0.1.0.zip
 ```
 
+## Technical Architecture
+
+```mermaid
+flowchart TD
+    subgraph Extension["Chrome Extension (MV3)"]
+        M["manifest.json
+(entrypoint)"]
+        P["popup.html + popup.js
+(host)"]
+        B["background.js
+(service worker)"]
+        C["content.js
+(injected, captions)"]
+        YT["YouTube
+video tag"]
+    end
+
+    subgraph WASM["Rust/WASM (Yew UI)"]
+        APP["App (lib.rs)
+• Grab Frame
+• Save PNG/JPEG
+• Clear All
+• Drag reorder
+• Delete one"]
+        WB["window bridge
+captureYoutubeFrame()
+loadYoutubeFrames()
+storeYoutubeFrames()
+clearYoutubeFrames()
+exportYoutubeFrames()"]
+    end
+
+    subgraph Storage["chrome.storage.local"]
+        STORAGE["youtube-frame-grab.frames[]
+[{url, width, height}, ...]"]
+    end
+
+    M -->|click icon| P
+    B -->|keyboard shortcut| C
+    C -->|capture frame| YT
+    C -->|read caption DOM
+overlay on canvas| C
+    YT -->|canvas.draw
+toDataURL| C
+    C -->|sendMessage| P
+    P -->|grab/save/clear| APP
+    APP -->|calls| WB
+    WB -->|store frames| STORAGE
+    STORAGE <--> WB
+```
+
 ## Local install
 
 1. Open `chrome://extensions`
@@ -44,18 +99,6 @@ release/youtube-frame-grab-alpha-v0.1.0.zip
 4. Select `extension/`
 5. Open a YouTube video
 6. Click extension icon and capture frames
-
-## Chrome Web Store alpha package
-
-Upload:
-
-```text
-release/youtube-frame-grab-alpha-v0.1.0.zip
-```
-
-Store assets live in `store-assets/`.
-
-See `CHROME_WEB_STORE_ALPHA.md` for listing copy and submission checklist.
 
 ## Privacy
 

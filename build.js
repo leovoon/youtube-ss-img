@@ -21,7 +21,7 @@ JSON.parse(fs.readFileSync(path.join(extensionDir, 'manifest.json'), 'utf8'));
 console.log('Creating Chrome Web Store ZIP...');
 if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
 execSync(
-  `zip -r ${JSON.stringify(zipPath)} manifest.json popup.html popup.js background.js content.js app.js app_bg.wasm icons -x '*.DS_Store'`,
+  `zip -r ${JSON.stringify(zipPath)} manifest.json popup.html sidepanel.html popup.js background.js content.js app.js app_bg.wasm icons -x '*.DS_Store'`,
   { cwd: extensionDir, stdio: 'inherit' }
 );
 

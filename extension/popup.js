@@ -2,6 +2,7 @@ import init from './app.js';
 
 const bootStatus = document.getElementById('boot-status');
 const FRAMES_STORAGE_KEY = 'youtube-frame-grab.frames';
+const AUTO_CAPTURE_KEY = 'youtube-frame-grab.auto-capture';
 
 function storageGet(key) {
   return new Promise((resolve, reject) => {
@@ -154,6 +155,34 @@ window.exportYoutubeFrames = async function exportYoutubeFrames(frames, format =
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+window.openSidePanelForAutoCapture = async function openSidePanelForAutoCapture(interval) {
+  try {
+    await chrome.storage.local.set({
+      [AUTO_CAPTURE_KEY]: { running: true, interval }
+    });
+
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab?.id) {
+      await chrome.sidePanel.open({ tabId: tab.id });
+    }
+
+    window.close();
+  } catch (error) {
+    console.error('Failed to open side panel:', error);
+    // Fallback: alert the user
+    alert('Could not open side panel. Please use the side panel icon in the toolbar.');
+  }
+};
+
+window.getAutoCaptureFlag = async function getAutoCaptureFlag() {
+  const result = await chrome.storage.local.get(AUTO_CAPTURE_KEY);
+  return result?.[AUTO_CAPTURE_KEY] || null;
+};
+
+window.clearAutoCaptureFlag = async function clearAutoCaptureFlag() {
+  await chrome.storage.local.remove(AUTO_CAPTURE_KEY);
 };
 
 init()
