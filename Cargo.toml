@@ -1,6 +1,6 @@
 [package]
 name = "youtube-ss-img"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Chrome extension for capturing YouTube video frames and exporting collages."
 repository = "https://github.com/leovoon/youtube-ss-img"

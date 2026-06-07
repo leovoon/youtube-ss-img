@@ -9,6 +9,10 @@ Alpha Chrome extension for capturing frames from YouTube videos and exporting th
 ## Alpha features
 
 - Capture current YouTube video frame from popup (includes visible closed captions)
+- Auto-capture with configurable time interval (0.5s–60s, default 1s)
+- Auto-capture opens in side panel so you can interact with the player while capturing
+- Live countdown timer shows time until next capture
+- Frame cap of 200 to prevent browser memory issues
 - Keyboard capture: `Ctrl+Shift+G` / `Cmd+Shift+G`
 - Keep captured frames across popup close/reopen
 - Delete individual frames
@@ -48,7 +52,9 @@ flowchart TD
         M["manifest.json
 (entrypoint)"]
         P["popup.html + popup.js
-(host)"]
+(popup host)"]
+        SP["sidepanel.html
+(side panel host)"]
         B["background.js
 (service worker)"]
         C["content.js
@@ -60,6 +66,7 @@ video tag"]
     subgraph WASM["Rust/WASM (Yew UI)"]
         APP["App (lib.rs)
 • Grab Frame
+• Auto-Capture (side panel)
 • Save PNG/JPEG
 • Clear All
 • Drag reorder
@@ -69,7 +76,10 @@ captureYoutubeFrame()
 loadYoutubeFrames()
 storeYoutubeFrames()
 clearYoutubeFrames()
-exportYoutubeFrames()"]
+exportYoutubeFrames()
+openSidePanelForAutoCapture()
+getAutoCaptureFlag()
+clearAutoCaptureFlag()"]
     end
 
     subgraph Storage["chrome.storage.local"]
@@ -78,6 +88,8 @@ exportYoutubeFrames()"]
     end
 
     M -->|click icon| P
+    P -->|auto-capture| SP
+    M -->|side panel icon| SP
     B -->|keyboard shortcut| C
     C -->|capture frame| YT
     C -->|read caption DOM

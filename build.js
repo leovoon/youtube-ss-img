@@ -5,7 +5,7 @@ const path = require('path');
 const root = __dirname;
 const extensionDir = path.join(root, 'extension');
 const releaseDir = path.join(root, 'release');
-const zipPath = path.join(releaseDir, 'youtube-frame-grab-alpha-v0.1.0.zip');
+const zipPath = path.join(releaseDir, 'youtube-frame-grab-alpha-v0.2.0.zip');
 
 fs.mkdirSync(releaseDir, { recursive: true });
 
