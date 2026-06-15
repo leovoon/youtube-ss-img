@@ -129,7 +129,8 @@ fn export_frames(frames: Vec<VideoFrame>, format: &'static str) {
             return;
         };
 
-        let Ok(promise_value) = export_fn.call2(&JsValue::NULL, &frames_value, &format.into()) else {
+        let Ok(promise_value) = export_fn.call2(&JsValue::NULL, &frames_value, &format.into())
+        else {
             show_error("Could not start export.");
             return;
         };
@@ -158,9 +159,10 @@ async fn capture_single_frame() -> Result<VideoFrame, String> {
         .map_err(|_| "Could not start frame capture.")?;
 
     let promise: Promise = promise_value.unchecked_into();
-    let value = JsFuture::from(promise)
-        .await
-        .map_err(|e| e.as_string().unwrap_or_else(|| format!("Frame capture failed: {e:?}")))?;
+    let value = JsFuture::from(promise).await.map_err(|e| {
+        e.as_string()
+            .unwrap_or_else(|| format!("Frame capture failed: {e:?}"))
+    })?;
 
     serde_wasm_bindgen::from_value::<VideoFrame>(value)
         .map_err(|e| format!("Invalid capture response: {e}"))
@@ -210,7 +212,8 @@ fn app() -> Html {
 
                     let promise: Promise = promise_value.unchecked_into();
                     match JsFuture::from(promise).await {
-                        Ok(value) => match serde_wasm_bindgen::from_value::<Vec<VideoFrame>>(value) {
+                        Ok(value) => match serde_wasm_bindgen::from_value::<Vec<VideoFrame>>(value)
+                        {
                             Ok(stored_frames) => {
                                 *frames_inner.borrow_mut() = stored_frames.clone();
                                 frames.set(stored_frames);
@@ -218,9 +221,9 @@ fn app() -> Html {
                             Err(error) => show_error(&format!("Invalid stored frames: {error}")),
                         },
                         Err(error) => {
-                            let message = error
-                                .as_string()
-                                .unwrap_or_else(|| format!("Could not load stored frames: {error:?}"));
+                            let message = error.as_string().unwrap_or_else(|| {
+                                format!("Could not load stored frames: {error:?}")
+                            });
                             show_error(&message);
                         }
                     }
@@ -250,10 +253,13 @@ fn app() -> Html {
                                 let promise: Promise = promise_value.unchecked_into();
                                 if let Ok(value) = JsFuture::from(promise).await {
                                     if let Ok(Some(flag)) =
-                                        serde_wasm_bindgen::from_value::<Option<AutoCaptureFlag>>(value)
+                                        serde_wasm_bindgen::from_value::<Option<AutoCaptureFlag>>(
+                                            value,
+                                        )
                                     {
                                         if flag.running {
-                                            let clamped = flag.interval.clamp(MIN_INTERVAL, MAX_INTERVAL);
+                                            let clamped =
+                                                flag.interval.clamp(MIN_INTERVAL, MAX_INTERVAL);
                                             interval_secs.set(clamped);
                                             countdown.set(clamped);
                                             auto_capturing.set(true);
@@ -431,7 +437,7 @@ fn app() -> Html {
         Callback::from(move |e: InputEvent| {
             let input: HtmlInputElement = e.target_unchecked_into();
             if let Ok(val) = input.value().parse::<f64>() {
-                if val >= MIN_INTERVAL && val <= MAX_INTERVAL {
+                if (MIN_INTERVAL..=MAX_INTERVAL).contains(&val) {
                     interval_secs.set(val);
                     *interval_inner.borrow_mut() = val;
                     if *auto_capturing {
@@ -467,7 +473,7 @@ fn app() -> Html {
         Callback::from(move |e: InputEvent| {
             let input: HtmlInputElement = e.target_unchecked_into();
             if let Ok(val) = input.value().parse::<f64>() {
-                if val >= MIN_INTERVAL && val <= MAX_INTERVAL {
+                if (MIN_INTERVAL..=MAX_INTERVAL).contains(&val) {
                     interval_secs.set(val);
                 }
             }

@@ -5,20 +5,64 @@ on:
   pull_request:
 
 jobs:
-  build:
+  quality:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-      - uses: actions/setup-node@v4
+
+      - name: Cache cargo registry and target
+        uses: actions/cache@v4
         with:
-          node-version: 22
-      - run: cargo install wasm-pack --locked
-      - run: cargo check --target wasm32-unknown-unknown
-      - run: node build.js
-      - uses: actions/upload-artifact@v4
-        with:
-          name: chrome-alpha-package
-          path: release/youtube-frame-grab-alpha-v0.1.0.zip
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      # --- Cargo gates -------------------------------------------------------
+      - name: cargo fmt --check
+        run: cargo fmt --all -- --check
+
+      - name: cargo clippy (deny warnings, WASM target)
+        run: cargo clippy --target wasm32-unknown-unknown --all-targets -- -D warnings
+
+      - name: cargo check (WASM target)
+        run: cargo check --target wasm32-unknown-unknown
+
+      - name: cargo test --no-run (WASM compile-only)
+        # This crate is cdylib-only with no #[test] functions today.
+        # We compile the test binary but do not try to execute it: a
+        # .wasm artifact cannot run on the host. --no-run is the standard
+        # WASM-only way to assert that the test surface still compiles.
+        # See AGENTS.md for the path to enable coverage and mutation.
+        run: cargo test --target wasm32-unknown-unknown --no-run
+
+      - name: cargo audit
+        # Pinned to 0.22.2 — the most recent release that understands the
+        # CVSS 4.0 advisory format. 0.21.x and older cannot parse it.
+        run: cargo install cargo-audit --locked --force --version 0.22.2 && cargo audit
+
+      # --- Slophammer gates --------------------------------------------------
+      # Pinned to 0.4.0 — do not use @latest. Slophammer makes breaking
+      # releases deliberately; an unpinned install absorbs them mid-pipeline.
+      - name: Install slophammer-rs 0.4.0
+        run: cargo install slophammer-rs --locked --version 0.4.0
+
+      - name: slophammer-rs dry
+        run: slophammer-rs dry . --format json
+
+      - name: slophammer-rs boundaries
+        run: slophammer-rs boundaries . --format json
+
+      - name: slophammer-rs unsafe
+        run: slophammer-rs unsafe . --format json
+
+      - name: slophammer-rs check
+        run: slophammer-rs check . --format json

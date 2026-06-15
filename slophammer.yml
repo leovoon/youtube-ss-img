@@ -1,0 +1,30 @@
+# Slophammer policy for youtube-ss-img.
+#
+# Pinned checker version: 0.4.0 (slophammer-rs on crates.io).
+# CI must invoke this exact version, not @latest, because Slophammer makes
+# breaking releases deliberately. See AGENTS.md for the full contract.
+
+rust:
+  # Architecture boundary: nothing outside the crate root may be imported
+  # by another crate. We are a single-crate WASM library; no workspace, no
+  # published sub-crates.
+  dependency_boundaries:
+    - from: .
+      allow: []
+
+  # Keep unsafe code forbidden. The WASM ABI surface is fully covered by
+  # wasm-bindgen's safe wrappers; nothing in this crate needs `unsafe`.
+  unsafe:
+    policy: forbid
+
+  # Enforce a hard ceiling on cognitive complexity. The auto-capture
+  # `on_start_auto_capture` closure in src/lib.rs is the most likely
+  # offender; the threshold gives clippy a hard line to enforce.
+  complexity:
+    cognitive_max: 8
+
+  # Coverage threshold reserved for when a host-target test surface
+  # is added. Today the crate is cdylib-only and `cargo llvm-cov` cannot
+  # instrument a WASM-only target. See AGENTS.md for the path to enable.
+  coverage:
+    threshold: 85
