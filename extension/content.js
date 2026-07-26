@@ -291,8 +291,10 @@
       // Draw the raw video frame at its position within the player
       ctx.drawImage(video, videoCanvasX, videoCanvasY, vw, vh);
 
+      let captionText = '';
       const captionData = getCaptionData();
       if (captionData && captionData.lines.length > 0) {
+        captionText = captionData.lines.map((l) => l.text).join(' ').trim();
         try {
           drawCaptionsOnCanvas(ctx, captionData, playerRect, scaleX, scaleY);
         } catch (_captionError) {
@@ -305,6 +307,9 @@
         url: canvas.toDataURL('image/jpeg', 0.92),
         width: canvasWidth,
         height: canvasHeight,
+        time: Number.isFinite(video.currentTime) ? video.currentTime : null,
+        captionText,
+        hasCaption: Boolean(captionText),
       };
     } catch (error) {
       return {

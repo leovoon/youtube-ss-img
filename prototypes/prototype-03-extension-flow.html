@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prototype 03 — Chrome Extension Flow</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="header">
+    <div>
+      <div class="eyebrow">Prototype 03 · extension flow sketch</div>
+      <h1>Side panel capture studio for YouTube.</h1>
+      <p class="lede">This mocks the target Chrome extension UX: content script captures the video frame plus visible caption DOM; the side panel stores shots, auto-tags them, then exports LineStack or collage.</p>
+    </div>
+    <nav class="nav"><a href="index.html">Hub</a><a href="prototype-01-linestack.html">LineStack</a><a href="prototype-02-collage.html">Collage</a></nav>
+  </header>
+
+  <main class="container">
+    <section class="grid">
+      <div class="youtube-shell">
+        <div class="video-stage" id="videoStage">
+          <div class="play"></div>
+          <div class="caption-demo" id="captionDemo">“This is the moment the captions become the structure.”</div>
+        </div>
+        <div class="timeline">
+          <div class="bar"><span id="barFill"></span></div>
+          <div class="capture-rail" id="captureRail"></div>
+        </div>
+      </div>
+
+      <aside class="panel">
+        <div class="panel__head">
+          <h2>Side panel controls</h2>
+          <p>Mocked controls for the future extension side panel.</p>
+        </div>
+        <div class="panel__body controls">
+          <div class="row">
+            <button id="captureBtn">Capture current</button>
+            <button class="secondary" id="autoBtn">Auto-capture x6</button>
+          </div>
+          <div class="control">
+            <label><span>Auto-classifier rule</span></label>
+            <select id="rule">
+              <option value="first-keyframe" selected>First shot keyframe, rest subtitle bands</option>
+              <option value="every-third">Every third shot keyframe</option>
+              <option value="all-subtitle">All subtitle bands</option>
+            </select>
+            <small>Later this can use scene-change detection + caption text changes.</small>
+          </div>
+          <div class="control">
+            <label><span>Subtitle crop</span><span id="ratioLabel">20%</span></label>
+            <input id="bottomKeepRatio" type="range" min="0.08" max="0.45" step="0.01" value="0.20">
+          </div>
+          <div class="row">
+            <button id="renderStackBtn">Export LineStack</button>
+            <button class="secondary" id="renderCollageBtn">Export collage</button>
+            <button class="ghost" id="clearBtn">Clear</button>
+          </div>
+          <div id="status" class="status">Ready. Use capture buttons to generate demo frames.</div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="grid" style="margin-top:22px">
+      <section class="panel">
+        <div class="panel__head">
+          <h2>Captured frame queue</h2>
+          <p>Stored locally in the real extension via chrome.storage.local or IndexedDB.</p>
+        </div>
+        <div class="panel__body"><div id="frameList" class="frame-list"></div></div>
+      </section>
+      <section class="panel">
+        <div class="panel__head">
+          <h2>Export preview</h2>
+          <p>Uses the same prototype rendering engine as the editable pages.</p>
+        </div>
+        <div class="panel__body"><div class="preview" id="preview"><p class="empty">Preview appears here.</p></div></div>
+      </section>
+    </section>
+
+    <section class="panel logic" style="margin-top:22px">
+      <div class="panel__head">
+        <h2>Extension architecture target</h2>
+        <p>How this prototype maps to the current Chrome extension.</p>
+      </div>
+      <div class="panel__body split">
+        <pre>Content script (already partly exists):
+  find YouTube video element
+  read caption window DOM
+  draw video to canvas
+  overlay caption text at matching position
+  return image blob/dataURL + metadata:
+    time, caption text, caption rect, video id
+
+Side panel / popup:
+  capture current frame
+  auto-capture interval
+  queue frames locally
+  classify frame type:
+    keyframe | subtitle-band
+  render:
+    LineStack (subtitle-preserving)
+    Collage (grid/masonry/strip)
+
+Background service worker:
+  keyboard command
+  open side panel
+  relay messages between popup/content script</pre>
+        <div>
+          <h3>Why this flow</h3>
+          <p class="lede" style="font-size:16px">The current project already captures YouTube frames and visible captions, then exports vertical collages. The revamp should keep that foundation but add a second export mode: LineStack, where each non-keyframe is cropped to the subtitle area. The editor’s main new interaction is classifying frames and tuning subtitle crop.</p>
+          <div class="callout"><strong>Important:</strong> keep everything local. The LineStack reference page also emphasizes “no uploads / runs locally,” which fits a Chrome extension well.</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { renderLineStack, renderCollage } from './engine.js';
+    import { $, renderFrameList, downloadBlob, blobToObjectURL } from './ui.js';
+
+    const captions = [
+      '“This is the moment the captions become the structure.”',
+      '“Instead of stacking full duplicate frames...”',
+      '“...we keep only the dialogue band.”',
+      '“Keyframes reset the scene for visual context.”',
+      '“Then collage mode turns moments into a board.”',
+      '“All processing stays local in the browser.”',
+    ];
+    const palettes = [
+      ['#111827', '#ef4444'], ['#312e81', '#f59e0b'], ['#064e3b', '#22c55e'],
+      ['#7f1d1d', '#38bdf8'], ['#1f2937', '#a78bfa'], ['#3b0764', '#fb7185']
+    ];
+    let tick = 0;
+    let items = [];
+    let lastUrl = null;
+
+    const frameList = $('#frameList');
+    const preview = $('#preview');
+    const status = $('#status');
+    const ratio = $('#bottomKeepRatio');
+    const ratioLabel = $('#ratioLabel');
+    const rail = $('#captureRail');
+
+    function setStatus(msg, cls = '') { status.className = `status ${cls}`; status.textContent = msg; }
+    function classify(index) {
+      const rule = $('#rule').value;
+      if (rule === 'all-subtitle') return 'subtitle';
+      if (rule === 'every-third') return index % 3 === 0 ? 'keyframe' : 'subtitle';
+      return index === 0 ? 'keyframe' : 'subtitle';
+    }
+    function refresh() {
+      ratioLabel.textContent = `${Math.round(Number(ratio.value) * 100)}%`;
+      renderFrameList(frameList, items, (next) => { items = next; refresh(); });
+      rail.innerHTML = items.map(() => '<div class="thumb"></div>').join('');
+      $('#barFill').style.width = `${Math.min(100, 10 + items.length * 12)}%`;
+    }
+    ratio.addEventListener('input', refresh);
+    $('#rule').addEventListener('change', () => {
+      items = items.map((it, i) => ({ ...it, type: classify(i) }));
+      refresh();
+    });
+
+    async function canvasToBlob(canvas) {
+      return await new Promise((res) => canvas.toBlob(res, 'image/jpeg', .92));
+    }
+    async function makeDemoCapture() {
+      const i = tick++;
+      const caption = captions[i % captions.length];
+      const [a, b] = palettes[i % palettes.length];
+      $('#captionDemo').textContent = caption;
+      const c = document.createElement('canvas');
+      c.width = 1280; c.height = 720;
+      const ctx = c.getContext('2d');
+      const g = ctx.createLinearGradient(0, 0, c.width, c.height);
+      g.addColorStop(0, a); g.addColorStop(1, b);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, c.width, c.height);
+      ctx.fillStyle = 'rgba(255,255,255,.08)';
+      for (let x = -200; x < 1500; x += 170) {
+        ctx.beginPath(); ctx.arc(x + i * 17, 220 + Math.sin(i + x) * 70, 120, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = 'rgba(0,0,0,.58)';
+      ctx.fillRect(115, 560, 1050, 78);
+      ctx.fillStyle = '#fff';
+      ctx.font = '700 38px Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(caption, 640, 600, 1000);
+      const blob = await canvasToBlob(c);
+      const file = new File([blob], `youtube-capture-${String(i + 1).padStart(2,'0')}.jpg`, { type: 'image/jpeg' });
+      return {
+        id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${i}`,
+        file,
+        name: file.name,
+        type: classify(items.length),
+        previewUrl: URL.createObjectURL(file),
+      };
+    }
+    async function captureOne() {
+      const it = await makeDemoCapture();
+      items = [...items, it];
+      refresh();
+      setStatus(`Captured ${items.length} frame(s).`, 'ok');
+    }
+
+    $('#captureBtn').addEventListener('click', captureOne);
+    $('#autoBtn').addEventListener('click', async () => {
+      $('#autoBtn').disabled = true;
+      for (let i = 0; i < 6; i++) {
+        setStatus(`Auto-capturing ${i + 1}/6…`);
+        await captureOne();
+        await new Promise((r) => setTimeout(r, 180));
+      }
+      $('#autoBtn').disabled = false;
+      setStatus('Auto-capture complete.', 'ok');
+    });
+    $('#clearBtn').addEventListener('click', () => {
+      items.forEach((i) => URL.revokeObjectURL(i.previewUrl));
+      items = [];
+      if (lastUrl) URL.revokeObjectURL(lastUrl);
+      preview.innerHTML = '<p class="empty">Preview appears here.</p>';
+      refresh();
+      setStatus('Cleared.');
+    });
+    $('#renderStackBtn').addEventListener('click', async () => {
+      if (!items.length) return setStatus('Capture frames first.', 'warn');
+      setStatus('Rendering LineStack…');
+      const [blob] = await renderLineStack(
+        items.map((it) => ({ source: it.file, isKeyframe: it.type === 'keyframe' })),
+        { outputWidth: 720, bottomKeepRatio: Number(ratio.value), watermarkText: 'YouTube LineStack' }
+      );
+      if (lastUrl) URL.revokeObjectURL(lastUrl);
+      lastUrl = blobToObjectURL(blob);
+      preview.innerHTML = `<img src="${lastUrl}" alt="LineStack preview"><div class="row" style="padding:12px"><button id="dl">Download LineStack</button></div>`;
+      $('#dl').onclick = () => downloadBlob(blob, 'youtube-linestack-demo.jpg');
+      setStatus('LineStack ready.', 'ok');
+    });
+    $('#renderCollageBtn').addEventListener('click', async () => {
+      if (!items.length) return setStatus('Capture frames first.', 'warn');
+      setStatus('Rendering collage…');
+      const blob = await renderCollage(items.map((it) => ({ source: it.file })), { layout: 'grid', columns: 2, outputWidth: 1080, gap: 12, cornerRadius: 14, watermarkText: 'YouTube Collage' });
+      if (lastUrl) URL.revokeObjectURL(lastUrl);
+      lastUrl = blobToObjectURL(blob);
+      preview.innerHTML = `<img src="${lastUrl}" alt="Collage preview"><div class="row" style="padding:12px"><button id="dl">Download collage</button></div>`;
+      $('#dl').onclick = () => downloadBlob(blob, 'youtube-collage-demo.jpg');
+      setStatus('Collage ready.', 'ok');
+    });
+
+    refresh();
+  </script>
+</body>
+</html>

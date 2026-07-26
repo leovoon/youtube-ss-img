@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prototype 01 — LineStack from YouTube screenshots</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="header">
+    <div>
+      <div class="eyebrow">Prototype 01 · subtitle-preserving LineStack</div>
+      <h1>Stack full scenes with caption bands.</h1>
+      <p class="lede">Drop YouTube screenshots, mark scenic frames as <strong>Keyframe</strong>, leave dialogue frames as <strong>Subtitle band</strong>, and export a vertical JPEG using the distilled LineStack algorithm.</p>
+    </div>
+    <nav class="nav"><a href="index.html">Hub</a><a href="prototype-02-collage.html">Collage</a><a href="prototype-03-extension-flow.html">Extension flow</a></nav>
+  </header>
+
+  <main class="container grid">
+    <section class="panel">
+      <div class="panel__head">
+        <h2>1. Import frames</h2>
+        <p>Use screenshots from the current extension or any image set. First frame defaults to Keyframe.</p>
+      </div>
+      <div class="panel__body controls">
+        <label class="dropzone" id="dropzone">
+          <input id="fileInput" type="file" accept="image/*" multiple>
+          <strong>Drop screenshots here</strong>
+          <span>or click to choose images · max 30 recommended</span>
+        </label>
+
+        <div class="control">
+          <label><span>Output width</span></label>
+          <select id="outputWidth">
+            <option value="720" selected>720 px — fast / social</option>
+            <option value="1080">1080 px — high quality</option>
+          </select>
+        </div>
+
+        <div class="control">
+          <label><span>Subtitle crop</span><span id="ratioLabel">20%</span></label>
+          <input id="bottomKeepRatio" type="range" min="0.08" max="0.45" step="0.01" value="0.20">
+          <small>How much of the bottom of every Subtitle-band frame to keep. Lower = tighter dialogue strip; higher = more visual context.</small>
+        </div>
+
+        <div class="row">
+          <div class="control">
+            <label><span>Gap before keyframes</span></label>
+            <select id="enableGap">
+              <option value="false" selected>Off</option>
+              <option value="true">On</option>
+            </select>
+          </div>
+          <div class="control">
+            <label><span>Gap px</span></label>
+            <input id="gapSize" type="number" value="8" min="0" max="80">
+          </div>
+        </div>
+
+        <div class="control">
+          <label><span>Watermark</span></label>
+          <input id="watermark" type="text" placeholder="optional text">
+        </div>
+
+        <div class="row">
+          <button id="renderBtn">Render LineStack</button>
+          <button class="secondary" id="downloadBtn" disabled>Download</button>
+          <button class="ghost" id="clearBtn">Clear</button>
+        </div>
+        <div id="status" class="status">Ready.</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel__head">
+        <h2>2. Arrange + classify</h2>
+        <p>Click “Keyframe / Subtitle band” to toggle. Drag cards or use arrows to reorder.</p>
+      </div>
+      <div class="panel__body">
+        <div id="frameList" class="frame-list"></div>
+      </div>
+    </section>
+
+    <section class="panel" style="grid-column: 1 / -1">
+      <div class="panel__head">
+        <h2>3. Preview export</h2>
+        <p>Large outputs are split internally by the engine; this prototype previews the first page.</p>
+      </div>
+      <div class="panel__body preview-wrap">
+        <div class="preview" id="preview"><p class="empty">Rendered LineStack preview will appear here.</p></div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { renderLineStack } from './engine.js';
+    import { $, filesToItems, renderDropzone, renderFrameList, downloadBlob, blobToObjectURL } from './ui.js';
+
+    let items = [];
+    let lastBlob = null;
+    let lastUrl = null;
+
+    const frameList = $('#frameList');
+    const status = $('#status');
+    const preview = $('#preview');
+    const renderBtn = $('#renderBtn');
+    const downloadBtn = $('#downloadBtn');
+    const ratio = $('#bottomKeepRatio');
+    const ratioLabel = $('#ratioLabel');
+
+    function setStatus(msg, cls = '') {
+      status.className = `status ${cls}`;
+      status.textContent = msg;
+    }
+
+    function refresh() {
+      renderFrameList(frameList, items, (next) => { items = next; refresh(); });
+      renderBtn.disabled = items.length === 0;
+      ratioLabel.textContent = `${Math.round(Number(ratio.value) * 100)}%`;
+    }
+
+    function addFiles(files) {
+      items = [...items, ...filesToItems(files, items.length)].slice(0, 30);
+      refresh();
+      setStatus(`${items.length} frame(s) loaded.`);
+    }
+
+    $('#fileInput').addEventListener('change', (ev) => addFiles(ev.target.files));
+    renderDropzone($('#dropzone'), addFiles);
+    ratio.addEventListener('input', refresh);
+
+    $('#clearBtn').addEventListener('click', () => {
+      items.forEach((i) => URL.revokeObjectURL(i.previewUrl));
+      items = [];
+      lastBlob = null;
+      if (lastUrl) URL.revokeObjectURL(lastUrl);
+      preview.innerHTML = '<p class="empty">Rendered LineStack preview will appear here.</p>';
+      downloadBtn.disabled = true;
+      refresh();
+      setStatus('Cleared.');
+    });
+
+    renderBtn.addEventListener('click', async () => {
+      if (!items.length) return;
+      renderBtn.disabled = true;
+      downloadBtn.disabled = true;
+      setStatus('Rendering…');
+      try {
+        const blobs = await renderLineStack(
+          items.map((it) => ({ source: it.file, isKeyframe: it.type === 'keyframe' })),
+          {
+            outputWidth: Number($('#outputWidth').value),
+            bottomKeepRatio: Number($('#bottomKeepRatio').value),
+            enableKeyframeGap: $('#enableGap').value === 'true',
+            gapSize: Number($('#gapSize').value),
+            watermarkText: $('#watermark').value.trim(),
+          },
+          (cur, total) => setStatus(`Measuring ${cur}/${total}…`)
+        );
+        lastBlob = blobs[0];
+        if (lastUrl) URL.revokeObjectURL(lastUrl);
+        lastUrl = blobToObjectURL(lastBlob);
+        preview.innerHTML = `<img src="${lastUrl}" alt="LineStack preview">`;
+        downloadBtn.disabled = false;
+        setStatus(`Rendered ${blobs.length} page(s). Previewing first page.`, 'ok');
+      } catch (err) {
+        console.error(err);
+        setStatus(`Render failed: ${err.message}`, 'warn');
+      } finally {
+        renderBtn.disabled = items.length === 0;
+      }
+    });
+
+    downloadBtn.addEventListener('click', () => {
+      if (lastBlob) downloadBlob(lastBlob, 'youtube-linestack.jpg');
+    });
+
+    refresh();
+  </script>
+</body>
+</html>

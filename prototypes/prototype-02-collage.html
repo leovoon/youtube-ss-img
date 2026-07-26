@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prototype 02 — Collage Maker</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="header">
+    <div>
+      <div class="eyebrow">Prototype 02 · collage maker</div>
+      <h1>Turn captured frames into social boards.</h1>
+      <p class="lede">A collage editor for the same YouTube frame set: uniform grid, masonry, or vertical strip. Later this can live beside LineStack in the Chrome extension side panel.</p>
+    </div>
+    <nav class="nav"><a href="index.html">Hub</a><a href="prototype-01-linestack.html">LineStack</a><a href="prototype-03-extension-flow.html">Extension flow</a></nav>
+  </header>
+
+  <main class="container grid">
+    <section class="panel">
+      <div class="panel__head">
+        <h2>1. Import frames</h2>
+        <p>Drop screenshots captured from YouTube or exported by the current extension.</p>
+      </div>
+      <div class="panel__body controls">
+        <label class="dropzone" id="dropzone">
+          <input id="fileInput" type="file" accept="image/*" multiple>
+          <strong>Drop frames here</strong>
+          <span>or click to select images</span>
+        </label>
+
+        <div class="row">
+          <div class="control">
+            <label><span>Layout</span></label>
+            <select id="layout">
+              <option value="grid" selected>Grid — poster board</option>
+              <option value="masonry">Masonry — variable height</option>
+              <option value="strip">Strip — vertical sequence</option>
+            </select>
+          </div>
+          <div class="control">
+            <label><span>Columns</span></label>
+            <input id="columns" type="number" value="2" min="1" max="6">
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="control">
+            <label><span>Width</span></label>
+            <select id="outputWidth">
+              <option value="720">720 px</option>
+              <option value="1080" selected>1080 px</option>
+              <option value="1440">1440 px</option>
+            </select>
+          </div>
+          <div class="control">
+            <label><span>Gap</span></label>
+            <input id="gap" type="number" value="10" min="0" max="80">
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="control">
+            <label><span>Background</span></label>
+            <input id="backgroundColor" type="color" value="#111111">
+          </div>
+          <div class="control">
+            <label><span>Corner radius</span></label>
+            <input id="cornerRadius" type="number" value="14" min="0" max="80">
+          </div>
+        </div>
+
+        <div class="control">
+          <label><span>Watermark</span></label>
+          <input id="watermark" type="text" placeholder="optional text">
+        </div>
+
+        <div class="row">
+          <button id="renderBtn">Render collage</button>
+          <button class="secondary" id="downloadBtn" disabled>Download</button>
+          <button class="ghost" id="clearBtn">Clear</button>
+        </div>
+        <div id="status" class="status">Ready.</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel__head">
+        <h2>2. Reorder</h2>
+        <p>Drag cards or use arrows. Classification badges are ignored here, but kept for shared capture data.</p>
+      </div>
+      <div class="panel__body">
+        <div id="frameList" class="frame-list"></div>
+      </div>
+    </section>
+
+    <section class="panel" style="grid-column: 1 / -1">
+      <div class="panel__head">
+        <h2>3. Preview collage</h2>
+        <p>Use this to test layouts before wiring the UI into the extension.</p>
+      </div>
+      <div class="panel__body preview-wrap">
+        <div class="preview" id="preview"><p class="empty">Rendered collage preview will appear here.</p></div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { renderCollage } from './engine.js';
+    import { $, filesToItems, renderDropzone, renderFrameList, downloadBlob, blobToObjectURL } from './ui.js';
+
+    let items = [];
+    let lastBlob = null;
+    let lastUrl = null;
+
+    const frameList = $('#frameList');
+    const preview = $('#preview');
+    const status = $('#status');
+    const renderBtn = $('#renderBtn');
+    const downloadBtn = $('#downloadBtn');
+
+    function setStatus(msg, cls = '') {
+      status.className = `status ${cls}`;
+      status.textContent = msg;
+    }
+    function refresh() {
+      renderFrameList(frameList, items, (next) => { items = next; refresh(); });
+      renderBtn.disabled = items.length === 0;
+    }
+    function addFiles(files) {
+      items = [...items, ...filesToItems(files, items.length)];
+      refresh();
+      setStatus(`${items.length} frame(s) loaded.`);
+    }
+
+    $('#fileInput').addEventListener('change', (ev) => addFiles(ev.target.files));
+    renderDropzone($('#dropzone'), addFiles);
+
+    $('#clearBtn').addEventListener('click', () => {
+      items.forEach((i) => URL.revokeObjectURL(i.previewUrl));
+      items = [];
+      lastBlob = null;
+      if (lastUrl) URL.revokeObjectURL(lastUrl);
+      preview.innerHTML = '<p class="empty">Rendered collage preview will appear here.</p>';
+      downloadBtn.disabled = true;
+      refresh();
+      setStatus('Cleared.');
+    });
+
+    renderBtn.addEventListener('click', async () => {
+      if (!items.length) return;
+      renderBtn.disabled = true;
+      downloadBtn.disabled = true;
+      setStatus('Rendering…');
+      try {
+        lastBlob = await renderCollage(
+          items.map((it) => ({ source: it.file })),
+          {
+            layout: $('#layout').value,
+            columns: Number($('#columns').value),
+            outputWidth: Number($('#outputWidth').value),
+            gap: Number($('#gap').value),
+            backgroundColor: $('#backgroundColor').value,
+            cornerRadius: Number($('#cornerRadius').value),
+            watermarkText: $('#watermark').value.trim(),
+          },
+          (cur, total) => setStatus(`Loading ${cur}/${total}…`)
+        );
+        if (lastUrl) URL.revokeObjectURL(lastUrl);
+        lastUrl = blobToObjectURL(lastBlob);
+        preview.innerHTML = `<img src="${lastUrl}" alt="Collage preview">`;
+        downloadBtn.disabled = false;
+        setStatus('Collage rendered.', 'ok');
+      } catch (err) {
+        console.error(err);
+        setStatus(`Render failed: ${err.message}`, 'warn');
+      } finally {
+        renderBtn.disabled = items.length === 0;
+      }
+    });
+
+    downloadBtn.addEventListener('click', () => {
+      if (lastBlob) downloadBlob(lastBlob, 'youtube-collage.jpg');
+    });
+
+    refresh();
+  </script>
+</body>
+</html>

@@ -1,10 +1,10 @@
 {
-  "name": "youtube-frame-grab",
-  "version": "0.1.0-alpha",
+  "name": "youtube-linestack-studio",
+  "version": "0.4.0-alpha",
   "private": true,
   "scripts": {
     "build": "node build.js",
-    "check": "cargo check --target wasm32-unknown-unknown",
+    "check": "node --check extension/engine.js && node --check extension/store.js && node --check extension/icons.js && node --check extension/sidepanel.js && node --check extension/popup.js && node --check extension/background.js && node --check extension/content.js",
     "package": "node build.js"
   }
 }

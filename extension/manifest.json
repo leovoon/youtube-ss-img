@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "YouTube Frame Grab",
-  "version": "0.2.0",
-  "version_name": "0.2.0-alpha",
-  "description": "Capture YouTube video frames, reorder them, and export vertical collages as PNG or JPEG.",
+  "name": "YouTube LineStack Studio",
+  "version": "0.4.0",
+  "version_name": "0.4.0-alpha",
+  "description": "Capture YouTube frames with captions, then export subtitle-preserving LineStack images and collages. Runs locally.",
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
@@ -12,7 +12,7 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "YouTube Frame Grab",
+    "default_title": "YouTube LineStack Studio",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",
@@ -50,10 +50,6 @@
     }
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
-  },
-  "web_accessible_resources": [{
-    "resources": ["*.wasm", "*.js"],
-    "matches": ["<all_urls>"]
-  }]
+    "extension_pages": "script-src 'self'; object-src 'self';"
+  }
 }

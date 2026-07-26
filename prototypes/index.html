@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prototype Hub — YouTube Capture + LineStack + Collage</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="header">
+    <div>
+      <div class="eyebrow">Revamp prototype hub</div>
+      <h1>YouTube shots → captions → LineStack → collage.</h1>
+      <p class="lede">HTML-first prototypes for evolving the current Chrome extension from “capture frames + vertical collage” into a YouTube visual clipping studio with subtitle-preserving LineStack exports and social collage layouts.</p>
+    </div>
+    <nav class="nav">
+      <a href="prototype-01-linestack.html">LineStack</a>
+      <a href="prototype-02-collage.html">Collage</a>
+      <a href="prototype-03-extension-flow.html">Extension flow</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <section class="grid-wide">
+      <article class="panel prototype-card">
+        <div class="pill">Prototype 01</div>
+        <h2>Subtitle-preserving LineStack</h2>
+        <p>Upload YouTube screenshots, mark full-scene keyframes vs subtitle bands, tune the bottom crop ratio, and export a vertical story image. This ports the actual LineStack tool-section logic into a plain Canvas engine.</p>
+        <div class="diagram">
+          <span class="node">Keyframe</span><span class="arrow">+</span><span class="node">Bottom 20% subtitle bands</span><span class="arrow">→</span><span class="node">Vertical JPEG</span>
+        </div>
+        <a class="button" href="prototype-01-linestack.html">Open LineStack prototype</a>
+      </article>
+
+      <article class="panel prototype-card">
+        <div class="pill">Prototype 02</div>
+        <h2>Collage maker</h2>
+        <p>Reuse captured frames for grid, masonry, and vertical-strip collages. This keeps the existing extension’s collage goal but makes it more deliberate: thumbnail layouts for shorts, posts, thumbnails, and recap boards.</p>
+        <div class="diagram">
+          <span class="node">Frames</span><span class="arrow">→</span><span class="node">Grid</span><span class="node">Masonry</span><span class="node">Strip</span>
+        </div>
+        <a class="button" href="prototype-02-collage.html">Open collage prototype</a>
+      </article>
+
+      <article class="panel prototype-card">
+        <div class="pill">Prototype 03</div>
+        <h2>Chrome extension side panel</h2>
+        <p>A UX sketch for the eventual extension: content script captures the YouTube video canvas and visible captions, stores frames locally, and a side panel lets the user export LineStack or collage outputs.</p>
+        <div class="diagram">
+          <span class="node">YouTube tab</span><span class="arrow">→</span><span class="node">Capture + captions</span><span class="arrow">→</span><span class="node">Side panel editor</span>
+        </div>
+        <a class="button" href="prototype-03-extension-flow.html">Open extension flow</a>
+      </article>
+    </section>
+
+    <section class="panel logic" style="margin-top:22px">
+      <div class="panel__head">
+        <h2>Distilled LineStack tool-section logic</h2>
+        <p>The source page is a Vite SPA. Its bundle reveals a very small, useful algorithm we can adapt directly.</p>
+      </div>
+      <div class="panel__body split">
+        <div>
+          <h3>Core idea</h3>
+          <p class="lede" style="font-size:16px">LineStack is not a generic collage. It stacks full “keyframe” screenshots with cropped subtitle bands. The subtitle crop slider controls how much of the bottom of each non-keyframe screenshot is retained, so dialogue remains readable while repeated video content is minimized.</p>
+          <div class="callout">For this project: YouTube capture should produce caption-aware frames automatically, then classify frames as <strong>keyframe</strong> or <strong>subtitle band</strong> before rendering.</div>
+        </div>
+        <pre>Defaults observed:
+MAX_IMAGES = 30
+outputWidth = 720 | 1080
+bottomKeepRatio = 0.2   // "subtitle crop"
+enableKeyframeGap = false
+gapSize = 8
+background = #FFFFFF
+jpgQuality = 0.9
+maxPageHeight = { 720: 18000, 1080: 12000 }
+
+For each screenshot:
+  scale = outputWidth / naturalWidth
+  if keyframe:
+    keep source y=0..height
+  else:
+    keep source bottom band:
+      sy = naturalHeight * (1 - bottomKeepRatio)
+      sh = naturalHeight * bottomKeepRatio
+  draw at width=outputWidth
+
+Then stack top-to-bottom, split huge outputs into pages,
+and optionally draw watermark at bottom-right.</pre>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
