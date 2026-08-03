@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "build": "node build.js",
-    "check": "node --check extension/engine.js && node --check extension/store.js && node --check extension/icons.js && node --check extension/sidepanel.js && node --check extension/popup.js && node --check extension/background.js && node --check extension/content.js",
+    "check": "node --check extension/core.js && node --check extension/engine.js && node --check extension/store.js && node --check extension/icons.js && node --check extension/sidepanel.js && node --check extension/background.js && node --check extension/content.js",
+    "test": "node --test extension/core.test.js",
     "package": "node build.js"
   }
 }

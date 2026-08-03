@@ -29,9 +29,9 @@ function appendFrame(response) {
   });
 }
 
-// Open the side panel when the toolbar icon is clicked (falls back to popup if set).
+// Open the side panel directly when the toolbar icon is clicked.
 if (chrome.sidePanel?.setPanelBehavior) {
-  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false }).catch(() => {});
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
 }
 
 chrome.commands.onCommand.addListener((command) => {

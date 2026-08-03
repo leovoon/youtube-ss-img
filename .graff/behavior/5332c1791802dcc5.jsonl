@@ -1,0 +1,3 @@
+{"kind":"run_started","seq":1,"ts":1785747139.665218,"run_id":"5332c1791802dcc5","schema":"codegraff.behavior.v1","version":"0.0.233","unix_ms":1785747139619,"provider":"fugu","model":"fugu","prompt_sha":"9878dbc75bd42c60","effort":"medium"}
+{"kind":"turn_started","seq":2,"ts":1785747216.271446,"run_id":"5332c1791802dcc5","schema":"codegraff.behavior.v1","turn":1,"parent_turn":0,"trajectory_node":1}
+{"kind":"turn_started","seq":3,"ts":1785754615.4381142,"run_id":"5332c1791802dcc5","schema":"codegraff.behavior.v1","turn":2,"parent_turn":1,"trajectory_node":2}

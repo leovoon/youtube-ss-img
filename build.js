@@ -14,11 +14,10 @@ JSON.parse(fs.readFileSync(path.join(extensionDir, 'manifest.json'), 'utf8'));
 
 const files = [
   'manifest.json',
-  'popup.html',
-  'popup.js',
   'sidepanel.html',
   'sidepanel.js',
   'background.js',
+  'core.js',
   'content.js',
   'engine.js',
   'store.js',

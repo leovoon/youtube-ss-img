@@ -14,6 +14,34 @@
       <button class="tab" data-tab="collage" data-icon="edit" role="tab"><span class="btxt">Collage</span></button>
     </nav>
 
+    <section class="card capture-first" data-panel="capture">
+      <div class="card__head"><h2>Capture from active YouTube tab</h2><small id="countLabel">0 frames</small></div>
+      <div class="card__body controls">
+        <div class="actions">
+          <button id="captureBtn" data-icon="capture">Capture current</button>
+          <button class="secondary" id="autoBtn" data-icon="play">Start auto</button>
+          <button class="secondary" id="uploadBtn" data-icon="image-add" title="Add image — or paste / drop an image">Add image</button>
+          <button class="secondary" id="downloadCaptureBtn" data-icon="download" disabled>Download current</button>
+          <input type="file" id="uploadInput" accept="image/png,image/jpeg,image/webp" hidden>
+        </div>
+        <div class="row">
+          <div class="control">
+            <label><span>Interval seconds</span></label>
+            <input id="interval" type="number" min="0.5" max="60" step="0.5" value="1">
+          </div>
+          <div class="control">
+            <label><span>New frame rule</span></label>
+            <select id="captureRule">
+              <option value="caption-aware" selected>Caption-aware</option>
+              <option value="first-keyframe">First keyframe</option>
+              <option value="all-subtitle">All subtitle bands</option>
+            </select>
+          </div>
+        </div>
+        <div id="status" class="status">Ready.</div>
+      </div>
+    </section>
+
     <main class="workspace">
       <!-- LEFT: preview first, then frame queue -->
       <div class="col col-preview">
@@ -36,7 +64,7 @@
           </div>
         </section>
 
-        <section class="card">
+        <section class="card" id="frameQueueCard">
           <div class="card__head"><h2>Frame queue</h2><small>drag to reorder</small></div>
           <div class="card__body"><div id="frameList" class="frame-list"></div></div>
         </section>
@@ -44,33 +72,6 @@
 
       <!-- RIGHT: controls -->
       <div class="col col-controls">
-        <section class="card" data-panel="capture">
-          <div class="card__head"><h2>Capture from active YouTube tab</h2><small id="countLabel">0 frames</small></div>
-          <div class="card__body controls">
-            <div class="actions">
-              <button id="captureBtn" data-icon="capture">Capture current</button>
-              <button class="secondary" id="autoBtn" data-icon="play">Start auto</button>
-              <button class="secondary wide" id="uploadBtn" data-icon="upload" title="Upload image — or paste / drop an image">Upload image</button>
-              <input type="file" id="uploadInput" accept="image/png,image/jpeg,image/webp" hidden>
-            </div>
-            <div class="row">
-              <div class="control">
-                <label><span>Interval seconds</span></label>
-                <input id="interval" type="number" min="0.5" max="60" step="0.5" value="1">
-              </div>
-              <div class="control">
-                <label><span>New frame rule</span></label>
-                <select id="captureRule">
-                  <option value="caption-aware" selected>Caption-aware</option>
-                  <option value="first-keyframe">First keyframe</option>
-                  <option value="all-subtitle">All subtitle bands</option>
-                </select>
-              </div>
-            </div>
-            <div id="status" class="status">Ready.</div>
-          </div>
-        </section>
-
         <section class="card" data-panel="linestack" hidden>
           <div class="card__head"><h2>LineStack export</h2><small>subtitle-preserving</small></div>
           <div class="card__body controls">
@@ -187,6 +188,29 @@
                 </div>
               </div>
               <small class="block-editor__hint">Tip: drag a block in the preview to pan; drag its edges to resize (Masonry).</small>
+
+              <div class="block-editor__group frame-editor">
+                <strong>Frame</strong>
+                <div class="control">
+                  <label><span>Caption</span><span id="frameCaptionHint"></span></label>
+                  <textarea id="frameCaption" rows="2" placeholder="Add caption…"></textarea>
+                </div>
+                <div class="row">
+                  <div class="control">
+                    <label><span>Type</span></label>
+                    <select id="frameType"><option value="keyframe">Keyframe</option><option value="subtitle">Subtitle band</option></select>
+                  </div>
+                  <div class="control">
+                    <label><span>Caption size</span><span id="frameCaptionScaleLabel">1.0×</span></label>
+                    <input id="frameCaptionScale" type="range" min="0.5" max="2" step="0.1" value="1">
+                  </div>
+                </div>
+                <div class="frame-editor__actions">
+                  <button class="ghost" id="frameEarlier" title="Move earlier">← Earlier</button>
+                  <button class="ghost" id="frameLater" title="Move later">Later →</button>
+                  <button class="danger" id="frameDelete">Delete</button>
+                </div>
+              </div>
             </div>
 
             <div class="actions">
@@ -199,6 +223,7 @@
 
     <footer class="footer">All frames and exports stay local in your browser storage.</footer>
   </div>
+  <script src="core.js"></script>
   <script type="module" src="sidepanel.js"></script>
   <div id="frameZoom" class="frame-zoom" hidden aria-hidden="true"></div>
 </body>

@@ -1,27 +1,3 @@
-# Chrome Web Store Alpha Release Checklist
-
-## Package
-
-Upload ZIP:
-
-```text
-release/youtube-frame-grab-alpha-v0.1.0.zip
-```
-
-Build/rebuild:
-
-```bash
-node build.js
-```
-
-## Listing copy
-
-### Name
-
-YouTube Frame Grab
-
-### Short description
-
 Capture YouTube video frames and export vertical PNG/JPEG collages.
 
 ### Detailed description
@@ -30,9 +6,9 @@ YouTube Frame Grab helps you capture still frames from YouTube videos, reorder t
 
 Alpha features:
 
-- Capture current video frame from the extension side panel
+- Capture current video frame from the extension popup
 - Keyboard shortcut: Ctrl+Shift+G / Cmd+Shift+G
-- Keep captured frames while the side panel opens/closes
+- Keep captured frames while popup opens/closes
 - Delete individual frames
 - Drag-and-drop reorder
 - Export vertical collages as PNG or JPEG
@@ -84,9 +60,9 @@ PRIVACY.md
 
 ## Permissions justification
 
-- `activeTab`: send capture request to current YouTube tab after user opens the extension
+- `activeTab`: send capture request to current YouTube tab after user opens popup
 - `scripting`: inject content script into already-open YouTube tabs after extension reload
-- `storage`: keep captured frames after the side panel closes
+- `storage`: keep captured frames after popup closes
 - `unlimitedStorage`: prevent captured image loss from local storage quota
 - `https://*.youtube.com/*`: access YouTube video element for user-requested frame capture
 
@@ -94,19 +70,12 @@ PRIVACY.md
 
 - [ ] Load unpacked `extension/`
 - [ ] Open YouTube video
-- [ ] Capture frame from the side panel
+- [ ] Capture frame from popup
 - [ ] Capture several frames
-- [ ] Close/reopen the side panel; frames persist
+- [ ] Close/reopen popup; frames persist
 - [ ] Delete one frame
 - [ ] Drag reorder frames
 - [ ] Export PNG
 - [ ] Export JPEG
 - [ ] Test Ctrl+Shift+G / Cmd+Shift+G capture
 - [ ] Clear frames
-
-## Release notes
-
-Version `0.1.0-alpha`:
-
-- Initial alpha release
-- Frame capture, persistence, delete/reorder, PNG/JPEG collage export

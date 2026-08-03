@@ -27,6 +27,8 @@ const PATHS = {
   trash: 'M5 2h6v2H5zM3 4h10v2H3zM4 6h8v8H4zm2 2h1v5H6zm3 0h1v5H9z',
   // Upload: arrow up out of a tray
   upload: 'M7 2h2v6h2l-3 4-3-4h2zM2 12h12v2H2z',
+  // Picture with a plus badge — adding an existing image, not uploading.
+  'image-add': 'M2 3h9v10H2zM3 4v7h7V4zM4 9l2-2 1 1 1-1 1 3zM12 2h2v2h2v2h-2v2h-2V6h-2V4h2z',
   // Text size: small 'A' beside a larger 'A'
   'text-size': 'M2 11h2l1-2h2l1 2h2L7 4H5zM5.5 5l1 3h-2zM9 12h3l1.5-3h3L18 12h3l-4-9h-2zM14.5 4l2 4h-3z',
   // Plus / minus steppers (caption size)

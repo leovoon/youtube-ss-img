@@ -1,5 +1,5 @@
 // Shared storage + capture helpers for the YouTube LineStack Studio extension.
-// Pure JS, no build step. Used by the side panel and the popup launcher.
+// Pure JS, no build step. Used by the side panel.
 
 export const FRAMES_KEY = 'youtube-frame-grab.frames';
 export const AUTO_KEY = 'youtube-frame-grab.auto-capture';
@@ -125,7 +125,7 @@ export async function captureFrame() {
     if (!String(error?.message ?? error).includes('Receiving end does not exist')) throw error;
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id) throw new Error('No active tab found.');
-    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['core.js', 'content.js'] });
     response = await sendToActiveTab({ action: 'capture-frame' });
   }
   if (!response?.ok) throw new Error(response?.error || 'Could not capture frame.');

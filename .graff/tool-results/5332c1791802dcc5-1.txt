@@ -1,0 +1,23 @@
+✓ 22 results for "popup"  ⚡ 6.5ms
+  extension/store.js:2  // Pure JS, no build step. Used by the side panel and the popup launcher.
+  extension/studio.css:272  .popup { width: 340px; min-height: auto; }
+  extension/studio.css:273  .popup .main { gap: 10px; }
+  extension/studio.css:274  .popup .stat { display:flex; justify-content:space-between; color:var(--muted); font-size:12px; padding:8px 0; border-bottom:1px solid var(--line); }
+  PRIVACY.md:13  The extension stores captured frame images locally using `chrome.storage.local` so frames remain available after the popup closes.
+  PRIVACY.md:37  Use **Clear Frames** in the popup to delete all captured frames. Deleting the extension also removes its local extension storage.
+  prototypes/prototype-03-extension-flow.html:96  Side panel / popup:
+  prototypes/prototype-03-extension-flow.html:109    relay messages between popup/content script</pre>
+  CHROME_WEB_STORE_ALPHA.md:33  - Capture current video frame from the extension popup
+  CHROME_WEB_STORE_ALPHA.md:35  - Keep captured frames while popup opens/closes
+  CHROME_WEB_STORE_ALPHA.md:87  - `activeTab`: send capture request to current YouTube tab after user opens popup
+  CHROME_WEB_STORE_ALPHA.md:89  - `storage`: keep captured frames after popup closes
+  CHROME_WEB_STORE_ALPHA.md:97  - [ ] Capture frame from popup
+  CHROME_WEB_STORE_ALPHA.md:99  - [ ] Close/reopen popup; frames persist
+  src/lib.rs:37          .unwrap_or_else(|| "popup".to_string())
+  src/lib.rs:453      // Popup: open side panel for auto-capture
+  src/lib.rs:454      let on_popup_auto_capture = {
+  src/lib.rs:470      // Popup: interval input change
+  src/lib.rs:471      let on_popup_interval_change = {
+  src/lib.rs:572                      // Popup: auto-capture button that opens side panel
+  src/lib.rs:580                              oninput={on_popup_interval_change}
+  src/lib.rs:584                          <button onclick={on_popup_auto_capture} style="flex: 1;">{ "Auto-Capture ▸" }</button>

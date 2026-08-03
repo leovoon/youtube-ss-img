@@ -1,11 +1,27 @@
 // Content script for YouTube page
 (function () {
+  const { canonicalYouTubeVideoId, chooseActiveVideoIndex } = globalThis.YTFrameCore;
   function getVideoElement() {
-    return document.querySelector('video');
+    const viewportCenter = window.innerHeight / 2;
+    const videos = [...document.querySelectorAll('video')];
+    const candidates = videos.map((video) => {
+      const rect = video.getBoundingClientRect();
+      const visibleWidth = Math.max(0, Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0));
+      const visibleHeight = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
+      const style = window.getComputedStyle(video);
+      return {
+        visible: visibleWidth * visibleHeight > 0 && style.display !== 'none' && style.visibility !== 'hidden',
+        visibleRatio: (visibleWidth * visibleHeight) / Math.max(1, rect.width * rect.height),
+        playing: !video.paused && !video.ended && video.readyState >= 2,
+        centerDistance: Math.abs(rect.top + rect.height / 2 - viewportCenter),
+      };
+    });
+    const index = chooseActiveVideoIndex(candidates);
+    return index >= 0 ? videos[index] : null;
   }
 
-  function getCaptionData() {
-    const container = document.querySelector('.ytp-caption-window-container');
+  function getCaptionData(player) {
+    const container = player?.querySelector('.ytp-caption-window-container');
     if (!container) return null;
 
     // Check container visibility
@@ -261,22 +277,17 @@
       return { ok: false, error: 'Video dimensions unavailable. Try after video starts playing.' };
     }
 
-    // The video element can be smaller than its player container (letterboxed
-    // on certain aspect ratios). Captions live in the player, so capture the
-    // player area at the video's scale and draw the video at its offset —
-    // this preserves the 2% bottom gap the player shows under the caption.
+    // Capture native video pixels only. YouTube Shorts wraps the video in a
+    // larger player containing controls, gradients, and margins that should
+    // not become part of the exported frame.
     const player = video.closest('.html5-video-player') || video.parentElement;
-    const playerRect = player ? player.getBoundingClientRect() : video.getBoundingClientRect();
     const videoRect = video.getBoundingClientRect();
 
     const scaleX = vw / videoRect.width;
     const scaleY = vh / videoRect.height;
 
-    const canvasWidth = Math.max(1, Math.ceil(playerRect.width * scaleX));
-    const canvasHeight = Math.max(1, Math.ceil(playerRect.height * scaleY));
-
-    const videoCanvasX = (videoRect.left - playerRect.left) * scaleX;
-    const videoCanvasY = (videoRect.top - playerRect.top) * scaleY;
+    const canvasWidth = vw;
+    const canvasHeight = vh;
 
     const canvas = document.createElement('canvas');
     canvas.width = canvasWidth;
@@ -288,15 +299,14 @@
     }
 
     try {
-      // Draw the raw video frame at its position within the player
-      ctx.drawImage(video, videoCanvasX, videoCanvasY, vw, vh);
+      ctx.drawImage(video, 0, 0, vw, vh);
 
       let captionText = '';
-      const captionData = getCaptionData();
+      const captionData = getCaptionData(player);
       if (captionData && captionData.lines.length > 0) {
         captionText = captionData.lines.map((l) => l.text).join(' ').trim();
         try {
-          drawCaptionsOnCanvas(ctx, captionData, playerRect, scaleX, scaleY);
+          drawCaptionsOnCanvas(ctx, captionData, videoRect, scaleX, scaleY);
         } catch (_captionError) {
           // Silently fall back to video-only if caption rendering fails
         }
@@ -310,6 +320,7 @@
         time: Number.isFinite(video.currentTime) ? video.currentTime : null,
         captionText,
         hasCaption: Boolean(captionText),
+        videoId: canonicalYouTubeVideoId(location.href),
       };
     } catch (error) {
       return {

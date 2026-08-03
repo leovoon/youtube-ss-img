@@ -1,0 +1,160 @@
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":0,"ev":"startup_phase","phase":"args","phase_ms":0,"startup_ms":0}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":0,"ev":"startup_phase","phase":"credentials/model","phase_ms":85,"startup_ms":85}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":0,"ev":"startup_phase","phase":"CA warm scheduled","phase_ms":0,"startup_ms":85}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":0,"ev":"startup_phase","phase":"banner","phase_ms":0,"startup_ms":85}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":0,"ev":"startup_phase","phase":"MCP registry","phase_ms":1,"startup_ms":86}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":0,"ev":"startup_phase","phase":"settings/theme","phase_ms":0,"startup_ms":86}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":27,"ev":"startup_phase","phase":"companion","phase_ms":27,"startup_ms":113}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":27,"ev":"startup_phase","phase":"approvals/hooks/fleet","phase_ms":0,"startup_ms":113}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":46,"ev":"startup_phase","phase":"system prompt","phase_ms":19,"startup_ms":132}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":46,"ev":"recipe","recipe_sha":"4f75daa10af49158","provider":"fugu","model":"fugu","effort":"medium","prompt_sha":"9878dbc75bd42c60","toolset_sha":"00d46829d482e254","task_class":"interactive","harness_version":"0.0.233"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":46,"ev":"session","detail":"fugu"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":46,"ev":"startup_phase","phase":"root agent","phase_ms":0,"startup_ms":132}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":76655,"ev":"ws","detail":"connecting"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":77529,"ev":"ws","detail":"connected"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":80689,"ev":"api","turn":1,"agent":"title","model":"gpt-5.6-luna","ms":4035,"req_bytes":644,"resp_bytes":6904,"context_tokens":8083,"cache_read_tokens":0,"is_error":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":81530,"ev":"ws","detail":"completed"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":81535,"ev":"api","turn":1,"agent":"main","model":"gpt-5.6-luna","ms":4879,"req_bytes":48501,"resp_bytes":165068,"context_tokens":12058,"cache_read_tokens":0,"is_error":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":81537,"ev":"ws","detail":"connecting"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":81537,"ev":"ws","detail":"reuse (delta)"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":85063,"ev":"ws","detail":"completed"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":85070,"ev":"api","turn":1,"agent":"main","model":"gpt-5.6-luna","ms":3531,"req_bytes":48744,"resp_bytes":155241,"context_tokens":12556,"cache_read_tokens":8704,"is_error":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":85244,"ev":"tool","turn":1,"name":"codedb","ms":173,"result_bytes":283,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":85244,"ev":"tool","turn":1,"name":"codedb","ms":173,"result_bytes":2326,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":85244,"ev":"tool","turn":1,"name":"codedb","ms":173,"result_bytes":1805,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":85245,"ev":"tool","turn":1,"name":"codedb","ms":174,"result_bytes":662,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":85272,"ev":"ws","detail":"connecting"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":85272,"ev":"ws","detail":"reuse (delta)"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":90539,"ev":"ws","detail":"completed"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":90557,"ev":"api","turn":1,"agent":"main","model":"gpt-5.6-luna","ms":5283,"req_bytes":53723,"resp_bytes":160902,"context_tokens":14075,"cache_read_tokens":9728,"is_error":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":90558,"ev":"tool","turn":1,"name":"read_file","ms":0,"result_bytes":1352,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":90558,"ev":"tool","turn":1,"name":"read_file","ms":0,"result_bytes":562,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":90558,"ev":"tool","turn":1,"name":"read_file","ms":0,"result_bytes":1005,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":90558,"ev":"tool","turn":1,"name":"read_file","ms":0,"result_bytes":1362,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":90558,"ev":"tool","turn":1,"name":"read_file","ms":0,"result_bytes":1119,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":90558,"ev":"tool","turn":1,"name":"read_file","ms":0,"result_bytes":1801,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":90558,"ev":"tool","turn":1,"name":"read_file","ms":0,"result_bytes":715,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":90660,"ev":"ws","detail":"connecting"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":90660,"ev":"ws","detail":"reuse (delta)"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":96968,"ev":"ws","detail":"completed"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":96975,"ev":"api","turn":1,"agent":"main","model":"gpt-5.6-luna","ms":6312,"req_bytes":57537,"resp_bytes":159776,"context_tokens":17018,"cache_read_tokens":10752,"is_error":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":96976,"ev":"tool","turn":1,"name":"read_file","ms":0,"result_bytes":523,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":96976,"ev":"tool","turn":1,"name":"read_file","ms":1,"result_bytes":990,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":96976,"ev":"tool","turn":1,"name":"read_file","ms":1,"result_bytes":990,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":96986,"ev":"tool","turn":1,"name":"codedb","ms":11,"result_bytes":172,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":96986,"ev":"tool","turn":1,"name":"codedb","ms":11,"result_bytes":113,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":97077,"ev":"ws","detail":"connecting"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":97077,"ev":"ws","detail":"reuse (delta)"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":103405,"ev":"ws","detail":"completed"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":103431,"ev":"api","turn":1,"agent":"main","model":"gpt-5.6-luna","ms":6352,"req_bytes":51863,"resp_bytes":157487,"context_tokens":18644,"cache_read_tokens":12800,"is_error":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":103470,"ev":"tool","turn":1,"name":"bash","ms":38,"result_bytes":285,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":103532,"ev":"ws","detail":"connecting"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":103532,"ev":"ws","detail":"reuse (delta)"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":114986,"ev":"ws","detail":"completed"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":114993,"ev":"api","turn":1,"agent":"main","model":"gpt-5.6-luna","ms":11457,"req_bytes":48872,"resp_bytes":163968,"context_tokens":19427,"cache_read_tokens":0,"is_error":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":130052,"ev":"tool","turn":1,"name":"edit_file","ms":65,"result_bytes":47,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":130052,"ev":"tool","turn":1,"name":"edit_file","ms":65,"result_bytes":62,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":130052,"ev":"tool","turn":1,"name":"edit_file","ms":65,"result_bytes":62,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":130052,"ev":"tool","turn":1,"name":"edit_file","ms":65,"result_bytes":61,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":130052,"ev":"tool","turn":1,"name":"edit_file","ms":65,"result_bytes":51,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":130088,"ev":"ws","detail":"connecting"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":130088,"ev":"ws","detail":"reuse (delta)"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":140105,"ev":"ws","detail":"completed"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":140131,"ev":"api","turn":1,"agent":"main","model":"gpt-5.6-luna","ms":10041,"req_bytes":49201,"resp_bytes":162794,"context_tokens":20610,"cache_read_tokens":14848,"is_error":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":140163,"ev":"tool","turn":1,"name":"edit_file","ms":31,"result_bytes":48,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":140163,"ev":"tool","turn":1,"name":"edit_file","ms":31,"result_bytes":58,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":140168,"ev":"tool","turn":1,"name":"edit_file","ms":36,"result_bytes":48,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":140168,"ev":"tool","turn":1,"name":"edit_file","ms":36,"result_bytes":58,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":140172,"ev":"tool","turn":1,"name":"edit_file","ms":40,"result_bytes":48,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":140172,"ev":"tool","turn":1,"name":"edit_file","ms":40,"result_bytes":58,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":140233,"ev":"ws","detail":"connecting"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":140233,"ev":"ws","detail":"reuse (delta)"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":269423,"ev":"ws","detail":"stall"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":269454,"ev":"stream_retry","detail":"stream stalled"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":270241,"ev":"ws","detail":"connecting"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":271569,"ev":"ws","detail":"connected"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":275935,"ev":"ws","detail":"completed"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":275982,"ev":"api","turn":1,"agent":"main","model":"gpt-5.6-luna","ms":5736,"req_bytes":87053,"resp_bytes":157224,"context_tokens":21696,"cache_read_tokens":14848,"is_error":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":327974,"ev":"tool","turn":1,"name":"bash","ms":34,"result_bytes":11,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":328040,"ev":"ws","detail":"connecting"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":328040,"ev":"ws","detail":"reuse (delta)"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":332661,"ev":"ws","detail":"completed"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":332686,"ev":"api","turn":1,"agent":"main","model":"gpt-5.6-luna","ms":4644,"req_bytes":48585,"resp_bytes":158111,"context_tokens":22142,"cache_read_tokens":15872,"is_error":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":332688,"ev":"tool","turn":1,"name":"read_file","ms":1,"result_bytes":308,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":332688,"ev":"tool","turn":1,"name":"read_file","ms":1,"result_bytes":770,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":332688,"ev":"tool","turn":1,"name":"read_file","ms":1,"result_bytes":1380,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":332701,"ev":"tool","turn":1,"name":"codedb","ms":15,"result_bytes":2004,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":332788,"ev":"ws","detail":"connecting"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":332788,"ev":"ws","detail":"reuse (delta)"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":336192,"ev":"ws","detail":"completed"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":336202,"ev":"api","turn":1,"agent":"main","model":"gpt-5.6-luna","ms":3412,"req_bytes":53487,"resp_bytes":158956,"context_tokens":23955,"cache_read_tokens":15872,"is_error":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":336204,"ev":"tool","turn":1,"name":"read_file","ms":1,"result_bytes":522,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":336305,"ev":"ws","detail":"connecting"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":336305,"ev":"ws","detail":"reuse (delta)"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":340243,"ev":"ws","detail":"completed"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":340265,"ev":"api","turn":1,"agent":"main","model":"gpt-5.6-luna","ms":3958,"req_bytes":49134,"resp_bytes":157210,"context_tokens":24607,"cache_read_tokens":16896,"is_error":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":340265,"ev":"tool","turn":1,"name":"read_file","ms":0,"result_bytes":360,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":340265,"ev":"tool","turn":1,"name":"read_file","ms":0,"result_bytes":2370,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":340266,"ev":"tool","turn":1,"name":"read_file","ms":1,"result_bytes":1435,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":340366,"ev":"ws","detail":"connecting"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":340366,"ev":"ws","detail":"reuse (delta)"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":354138,"ev":"ws","detail":"completed"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":354149,"ev":"api","turn":1,"agent":"main","model":"gpt-5.6-luna","ms":13780,"req_bytes":52636,"resp_bytes":170059,"context_tokens":26169,"cache_read_tokens":16896,"is_error":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":354165,"ev":"tool","turn":1,"name":"edit_file","ms":15,"result_bytes":59,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":354165,"ev":"tool","turn":1,"name":"edit_file","ms":15,"result_bytes":49,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":354165,"ev":"tool","turn":1,"name":"edit_file","ms":16,"result_bytes":64,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":354165,"ev":"tool","turn":1,"name":"edit_file","ms":16,"result_bytes":57,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":354170,"ev":"tool","turn":1,"name":"edit_file","ms":20,"result_bytes":49,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":354170,"ev":"tool","turn":1,"name":"edit_file","ms":20,"result_bytes":64,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":354174,"ev":"tool","turn":1,"name":"edit_file","ms":25,"result_bytes":64,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":354178,"ev":"tool","turn":1,"name":"edit_file","ms":7,"result_bytes":64,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":354182,"ev":"tool","turn":1,"name":"edit_file","ms":11,"result_bytes":64,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":354185,"ev":"tool","turn":1,"name":"edit_file","ms":15,"result_bytes":64,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":354251,"ev":"ws","detail":"connecting"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":354251,"ev":"ws","detail":"reuse (delta)"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":356803,"ev":"ws","detail":"completed"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":356811,"ev":"api","turn":1,"agent":"main","model":"gpt-5.6-luna","ms":2559,"req_bytes":49946,"resp_bytes":165196,"context_tokens":27925,"cache_read_tokens":17920,"is_error":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":356813,"ev":"ws","detail":"connecting"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":356813,"ev":"ws","detail":"reuse (delta)"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":363585,"ev":"ws","detail":"completed"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":363598,"ev":"api","turn":1,"agent":"main","model":"gpt-5.6-luna","ms":6782,"req_bytes":48744,"resp_bytes":162019,"context_tokens":28392,"cache_read_tokens":18944,"is_error":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":619848,"ev":"tool","turn":1,"name":"bash","ms":160,"result_bytes":518,"is_error":true,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":620193,"ev":"tool","turn":1,"name":"bash","ms":506,"result_bytes":11,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":620207,"ev":"tool","turn":1,"name":"bash","ms":519,"result_bytes":297,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":620249,"ev":"tool","turn":1,"name":"bash","ms":562,"result_bytes":410,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":620393,"ev":"tool","turn":1,"name":"bash","ms":706,"result_bytes":82,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":620876,"ev":"tool","turn":1,"name":"bash","ms":1188,"result_bytes":704,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":621001,"ev":"tool","turn":1,"name":"bash","ms":1313,"result_bytes":302,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":621004,"ev":"ws","detail":"connecting"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":621005,"ev":"ws","detail":"idle > 240s — re-anchoring with fresh connection"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":621030,"ev":"ws","detail":"connecting"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":621528,"ev":"ws","detail":"connected"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":627685,"ev":"ws","detail":"completed"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":627701,"ev":"api","turn":1,"agent":"main","model":"gpt-5.6-luna","ms":6668,"req_bytes":120259,"resp_bytes":158883,"context_tokens":29998,"cache_read_tokens":18944,"is_error":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":631456,"ev":"tool","turn":1,"name":"codedb","ms":11,"result_bytes":35,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":631456,"ev":"tool","turn":1,"name":"codedb","ms":11,"result_bytes":32,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":631513,"ev":"tool","turn":1,"name":"bash","ms":68,"result_bytes":37,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":631519,"ev":"tool","turn":1,"name":"bash","ms":74,"result_bytes":1214,"is_error":false,"from_sub":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":631546,"ev":"ws","detail":"connecting"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":631546,"ev":"ws","detail":"reuse (delta)"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":637707,"ev":"ws","detail":"completed"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":637716,"ev":"api","turn":1,"agent":"main","model":"gpt-5.6-luna","ms":6166,"req_bytes":50196,"resp_bytes":166203,"context_tokens":31127,"cache_read_tokens":19968,"is_error":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":637719,"ev":"ws","detail":"connecting"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":637719,"ev":"ws","detail":"reuse (delta)"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":767489,"ev":"ws","detail":"stall"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":767499,"ev":"stream_retry","detail":"stream stalled"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":768294,"ev":"ws","detail":"connecting"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":768885,"ev":"ws","detail":"connected"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":774721,"ev":"ws","detail":"completed"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":774743,"ev":"api","turn":1,"agent":"main","model":"gpt-5.6-luna","ms":6447,"req_bytes":127876,"resp_bytes":200752,"context_tokens":31902,"cache_read_tokens":20992,"is_error":false}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":774745,"ev":"recipe_outcome","recipe_sha":"2adcdd384d17cf81","task_class":"general","provider":"codex","model":"gpt-5.6-luna","effort":"medium","success":true,"latency_ms":698092,"model_calls":18,"tool_calls":61,"tool_errors":1,"uncached_tokens":46625,"cache_read_tokens":233984,"cache_permille":833,"cost_microusd":0,"resp_blocks":1,"resp_types":"text","resp_text_len":903}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":7475764,"ev":"ws","detail":"connecting"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":7475766,"ev":"ws","detail":"idle > 240s — re-anchoring with fresh connection"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":7475792,"ev":"ws","detail":"connecting"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":7476340,"ev":"ws","detail":"connected"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":7606119,"ev":"ws","detail":"stall"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":7606136,"ev":"stream_retry","detail":"stream stalled"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":7606913,"ev":"ws","detail":"connecting"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":7608069,"ev":"ws","detail":"connected"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":7709288,"ev":"ws","detail":"esc"}
+{"run_id":"5332c1791802dcc5","pid":27869,"session_id":"eeb79ffd2bb6b4dd4fb4d5c38a9b7734","t":7709304,"ev":"recipe_outcome","recipe_sha":"2adcdd384d17cf81","task_class":"general","provider":"codex","model":"gpt-5.6-luna","effort":"medium","success":false,"latency_ms":233555,"model_calls":1,"tool_calls":0,"tool_errors":0,"uncached_tokens":0,"cache_read_tokens":0,"cache_permille":0,"cost_microusd":0,"resp_blocks":0,"resp_types":"","resp_text_len":0}

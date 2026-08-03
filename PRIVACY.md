@@ -10,7 +10,7 @@ The extension does not collect, sell, share, or transmit personal data to any se
 
 ## Local data stored
 
-The extension stores captured frame images locally using `chrome.storage.local` so frames remain available after the popup closes.
+The extension stores captured frame images locally using `chrome.storage.local` so frames remain available after the side panel closes.
 
 Stored data may include:
 
@@ -34,7 +34,7 @@ The extension does not make external network requests. It only runs on YouTube p
 
 ## Data deletion
 
-Use **Clear Frames** in the popup to delete all captured frames. Deleting the extension also removes its local extension storage.
+Use **Clear Frames** in the side panel to delete all captured frames. Deleting the extension also removes its local extension storage.
 
 ## Contact
 

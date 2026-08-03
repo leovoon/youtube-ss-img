@@ -10,12 +10,11 @@
   },
   "files": [
     "manifest.json",
-    "popup.html",
-    "popup.js",
     "sidepanel.html",
     "sidepanel.js",
     "background.js",
     "content.js",
+    "core.js",
     "engine.js",
     "store.js",
     "studio.css",

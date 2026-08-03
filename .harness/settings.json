@@ -1,0 +1,11 @@
+{
+  "allow": [
+    "edit_file",
+    "rm",
+    "npm",
+    "cargo",
+    "slophammer-rs",
+    "node",
+    "git"
+  ]
+}

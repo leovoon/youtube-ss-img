@@ -74,19 +74,17 @@ release/youtube-linestack-studio-alpha-v0.3.0.zip
 2. Enable Developer mode
 3. Click **Load unpacked** and select `extension/`
 4. Open a YouTube video (turn captions on for subtitle bands)
-5. Click the toolbar icon to quick-capture, or **Open studio** for the side panel
+5. Click the toolbar icon to open the studio side panel directly
 
 ## Architecture (MV3, pure JS)
 
 ```mermaid
 flowchart TD
-    M["manifest.json"] --> P["popup.html/js (launcher)"]
-    M --> SP["sidepanel.html/js (studio)"]
+    M["manifest.json"] --> SP["sidepanel.html/js (studio)"]
     M --> B["background.js (service worker)"]
     M --> C["content.js (injected)"]
     C -->|draw video + overlay captions| YT["YouTube video"]
     C -->|dataURL + caption text + time| STORE["store.js"]
-    P --> STORE
     SP --> STORE
     B --> STORE
     STORE --> LS["chrome.storage.local frames[]"]
