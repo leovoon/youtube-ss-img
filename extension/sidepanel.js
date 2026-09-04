@@ -231,6 +231,7 @@ function renderStrip() {
   
   if (!frames.length) {
     els.outputStrip.innerHTML = '';
+    els.outputStrip.classList.remove('active');
     els.emptyState.hidden = false;
     els.emptyState.innerHTML = `<div class="empty-state__inner">
       ${emptyStateArt(80)}
@@ -242,6 +243,7 @@ function renderStrip() {
   }
   
   els.emptyState.hidden = true;
+  els.outputStrip.classList.add('active');
   
   // Watermark
   const watermark = $('#stackWatermark').value.trim();
