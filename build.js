@@ -5,12 +5,13 @@ const path = require('path');
 const root = __dirname;
 const extensionDir = path.join(root, 'extension');
 const releaseDir = path.join(root, 'release');
-const zipPath = path.join(releaseDir, 'youtube-linestack-studio-alpha-v0.4.0.zip');
+const manifestPath = path.join(extensionDir, 'manifest.json');
 
 fs.mkdirSync(releaseDir, { recursive: true });
 
 console.log('Validating manifest...');
-JSON.parse(fs.readFileSync(path.join(extensionDir, 'manifest.json'), 'utf8'));
+const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+const zipPath = path.join(releaseDir, `youtube-linestack-studio-v${manifest.version}.zip`);
 
 const files = [
   'manifest.json',
