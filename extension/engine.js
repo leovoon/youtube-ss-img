@@ -7,8 +7,7 @@
 // -- Distilled LineStack model --------------------------------------------
 // Config defaults observed in the shipped bundle:
 //   outputWidth: 720 | 1080          (canvas width; everything scales to it)
-//   enableKeyframeGap: false         (draw a gap band before each keyframe)
-//   gapSize: 8                        (gap band height in px)
+//
 //   backgroundColor: "#FFFFFF"
 //   bottomKeepRatio: 0.2             ("subtitle crop" slider, 0..1)
 //   watermarkText: ""
@@ -30,7 +29,7 @@
 export const LINESTACK_DEFAULTS = {
   outputWidth: 1080,
   enableKeyframeGap: false,
-  gapSize: 8,
+
   backgroundColor: "#FFFFFF",
   bottomKeepRatio: 0.2,
   watermarkText: "",
@@ -82,30 +81,19 @@ function bitmapSize(b) {
   return { w: b.width || b.naturalWidth, h: b.height || b.naturalHeight };
 }
 
-// A "gap before keyframe" boundary: insert a gap band before any keyframe.
-function needsGapBefore(prev, cur) {
-  return !!prev && cur.isKeyframe;
-}
-
 // Split a flat list of measured items into pages under MAX_PAGE_HEIGHT.
-function paginate(items, maxHeight, gapEnabled, gapSize) {
+function paginate(items, maxHeight) {
   const pages = [];
   let cur = [];
   let curH = 0;
-  let prev = null;
   for (const it of items) {
-    const gap = gapEnabled && needsGapBefore(prev, it) ? gapSize : 0;
-    const add = gap + it.height;
-    if (cur.length > 0 && curH + add > maxHeight) {
+    if (cur.length > 0 && curH + it.height > maxHeight) {
       pages.push({ items: cur, height: curH });
       cur = [];
       curH = 0;
-      prev = null;
     }
-    const g = gapEnabled && needsGapBefore(prev, it) ? gapSize : 0;
-    curH += g + it.height;
+    curH += it.height;
     cur.push(it);
-    prev = it;
   }
   if (cur.length > 0) pages.push({ items: cur, height: curH });
   return pages;
@@ -139,7 +127,7 @@ async function canvasToBlob(canvas, type, quality) {
 
 /**
  * Render a vertical LineStack.
- * @param {Array<{source: Blob|HTMLImageElement|string, isKeyframe?: boolean}>} images
+ * @param {Array<{source: Blob|HTMLImageElement|string, isKeyframe?: boolean, cropRatio?: number, cropTop?: number, cropBottom?: number}>} images
  * @param {object} cfg  overrides for LINESTACK_DEFAULTS
  * @param {(cur:number,total:number)=>void} [onProgress]
  * @returns {Promise<Blob[]>} one blob per page
@@ -155,20 +143,37 @@ export async function renderLineStack(images, cfg = {}, onProgress = () => {}) {
     const b = await loadBitmap(images[i].source);
     const { w, h } = bitmapSize(b);
     const isKeyframe = !!images[i].isKeyframe;
+    // Two-direction crop: cropTop removes from top, cropBottom removes from bottom.
+    // Legacy cropRatio (single value) maps to cropTop = 1 - ratio, cropBottom = 0.
+    let cropTop, cropBottom;
+    if (typeof images[i].cropTop === 'number' || typeof images[i].cropBottom === 'number') {
+      cropTop = typeof images[i].cropTop === 'number' ? images[i].cropTop : (1 - c.bottomKeepRatio);
+      cropBottom = typeof images[i].cropBottom === 'number' ? images[i].cropBottom : 0;
+    } else if (typeof images[i].cropRatio === 'number') {
+      cropTop = 1 - images[i].cropRatio;
+      cropBottom = 0;
+    } else {
+      cropTop = 1 - c.bottomKeepRatio;
+      cropBottom = 0;
+    }
+    // Clamp so the kept region is at least 5% of the frame
+    const keptRatio = Math.max(0.05, 1 - cropTop - cropBottom);
+    cropTop = Math.max(0, Math.min(1 - 0.05, cropTop));
+    cropBottom = Math.max(0, Math.min(1 - cropTop - 0.05, cropBottom));
+    
     const scale = c.outputWidth / w;
-    const keptH = isKeyframe ? h : Math.round(h * c.bottomKeepRatio);
+    const keptH = isKeyframe ? h : Math.round(h * keptRatio);
     const drawH = Math.round(keptH * scale);
     measured.push({
       bitmap: b, natW: w, natH: h, height: drawH, isKeyframe,
+      cropTop, cropBottom, keptRatio,
       captionText: images[i].captionText || '',
       hasBakedCaption: !!images[i].hasBakedCaption,
       captionScale: images[i].captionScale,
     });
   }
 
-  const keyframeCount = measured.filter((m) => m.isKeyframe).length;
-  const gapEnabled = c.enableKeyframeGap && keyframeCount >= 2;
-  const pages = paginate(measured, maxPage, gapEnabled, c.gapSize);
+  const pages = paginate(measured, maxPage);
 
   const type = "image/jpeg";
   const blobs = [];
@@ -178,25 +183,18 @@ export async function renderLineStack(images, cfg = {}, onProgress = () => {}) {
     ctx.fillStyle = c.backgroundColor || "#FFFFFF";
     ctx.fillRect(0, 0, c.outputWidth, page.height);
     let y = 0;
-    let prev = null;
     for (const it of page.items) {
-      if (gapEnabled && needsGapBefore(prev, it)) {
-        ctx.fillStyle = c.backgroundColor;
-        ctx.fillRect(0, y, c.outputWidth, c.gapSize);
-        y += c.gapSize;
-      }
       if (it.isKeyframe) {
         ctx.drawImage(it.bitmap, 0, 0, it.natW, it.natH, 0, y, c.outputWidth, it.height);
       } else {
-        const sy = it.natH * (1 - c.bottomKeepRatio);
-        const sh = it.natH * c.bottomKeepRatio;
+        const sy = it.natH * it.cropTop;
+        const sh = it.natH * it.keptRatio;
         ctx.drawImage(it.bitmap, 0, sy, it.natW, sh, 0, y, c.outputWidth, it.height);
       }
       if (!it.hasBakedCaption && it.captionText) {
         drawCaptionOverlay(ctx, it.captionText, 0, y, c.outputWidth, it.height, it.captionScale);
       }
       y += it.height;
-      prev = it;
     }
     drawWatermark(ctx, c.watermarkText, c.outputWidth, page.height);
     blobs.push(await canvasToBlob(canvas, type, c.jpgQuality));

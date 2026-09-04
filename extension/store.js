@@ -48,6 +48,7 @@ function normalizeFrame(f, index) {
     height: f.height || 0,
     type: f.type === 'keyframe' || f.type === 'subtitle' ? f.type : (index === 0 ? 'keyframe' : 'subtitle'),
     time: typeof f.time === 'number' ? f.time : null,
+    videoId: f.videoId || null,
     captionText: f.captionText || '',
     // True when a caption is baked into the image pixels (captured frames that
     // had a visible YouTube caption). False for uploads and caption-less
@@ -55,6 +56,10 @@ function normalizeFrame(f, index) {
     hasBakedCaption: typeof f.hasBakedCaption === 'boolean' ? f.hasBakedCaption : Boolean(f.captionText),
     // Per-frame scale for custom (non-baked) caption overlays. 1 = default.
     captionScale: typeof f.captionScale === 'number' && Number.isFinite(f.captionScale) ? f.captionScale : 1,
+    // Per-frame subtitle crop: cropTop removes from top, cropBottom from bottom.
+    // Both are 0..1 ratios. null = use global setting.
+    cropTop: typeof f.cropTop === 'number' && Number.isFinite(f.cropTop) ? f.cropTop : null,
+    cropBottom: typeof f.cropBottom === 'number' && Number.isFinite(f.cropBottom) ? f.cropBottom : null,
     capturedAt: f.capturedAt || Date.now(),
     // Per-frame collage view transform (zoom + pan). 1 / 0 / 0 = cover-fit.
     view: {
@@ -145,11 +150,10 @@ export async function appendCapture(response) {
       width: response.width,
       height: response.height,
       time: response.time ?? null,
+      videoId: response.videoId || null,
       captionText: response.captionText || '',
       hasBakedCaption: Boolean(response.hasCaption),
-      // Frames with visible captions default to subtitle bands; caption-less
-      // frames default to keyframes (they carry the visual context).
-      type: response.hasCaption ? 'subtitle' : 'keyframe',
+    type: 'keyframe',
       capturedAt: Date.now(),
     },
     frames.length

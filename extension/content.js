@@ -337,6 +337,18 @@
       });
       return true;
     }
+    if (message?.action === 'seek-to') {
+      const videos = [...document.querySelectorAll('video')];
+      const active = videos.find((v) => !v.paused) || videos[0];
+      if (active && typeof message.time === 'number') {
+        active.currentTime = message.time;
+        active.play().catch(() => {});
+        sendResponse({ ok: true });
+      } else {
+        sendResponse({ ok: false, error: 'No video found' });
+      }
+      return true;
+    }
   });
 
   window.youtubeFrameGrabber = { captureFrame };
