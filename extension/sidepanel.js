@@ -101,7 +101,6 @@ const els = {
   captureBtn: $('#captureBtn'),
   autoBtn: $('#autoBtn'),
   interval: $('#interval'),
-  captureRule: $('#captureRule'),
   ratio: null, // removed — per-frame crop only
   ratioLabel: null,
   downloadExportBtn: $('#downloadExportBtn'),
@@ -535,16 +534,6 @@ els.outputStrip.addEventListener('pointercancel', () => {
 // ---------------------------------------------------------------------------
 // Capture
 // ---------------------------------------------------------------------------
-function applyCaptureRule(nextFrames) {
-  const rule = els.captureRule.value;
-  if (rule === 'caption-aware') return nextFrames;
-  return nextFrames.map((f, i) => {
-    if (rule === 'first-keyframe') return { ...f, type: i === 0 ? 'keyframe' : 'subtitle' };
-    if (rule === 'all-subtitle') return { ...f, type: 'subtitle' };
-    return f;
-  });
-}
-
 async function captureAndStore({ auto = false } = {}) {
   els.captureBtn.disabled = true;
   try {
@@ -559,7 +548,6 @@ async function captureAndStore({ auto = false } = {}) {
       autoVideoId ||= response.videoId;
     }
     let next = await appendCapture(response);
-    next = applyCaptureRule(next);
     // Apply default capture type from settings
     const defaultType = $('#defaultCaptureType')?.value || 'subtitle';
     if (next.length > 0) {
@@ -619,10 +607,6 @@ function startAuto() {
 
 els.captureBtn.addEventListener('click', captureAndStore);
 els.autoBtn.addEventListener('click', () => (autoRunning ? stopAuto() : startAuto()));
-
-els.captureRule.addEventListener('change', async () => {
-  await updateFrames(applyCaptureRule(frames));
-});
 
 // ---------------------------------------------------------------------------
 // Upload / paste / drop images
