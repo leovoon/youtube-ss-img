@@ -398,8 +398,9 @@ button .pixi { filter: drop-shadow(1px 1px 0 rgba(0,0,0,.35)); }
 }
 .share-btn:disabled { opacity: .25; cursor: not-allowed; }
 
-/* Bottom padding so content isn't hidden behind fixed dock */
-.app { padding-bottom: 80px; }
+/* Bottom padding on scrollable areas so content clears the fixed dock */
+.output-strip { padding-bottom: 80px; }
+.preview-container { padding-bottom: 80px; }
 
 /* ─── Block editor (collage) ─────────────────────────────────────────────── */
 .block-editor {
