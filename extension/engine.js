@@ -139,7 +139,7 @@ async function canvasToBlob(canvas, type, quality) {
 
 /**
  * Render a vertical LineStack.
- * @param {Array<{source: Blob|HTMLImageElement|string, isKeyframe?: boolean, cropRatio?: number}>} images
+ * @param {Array<{source: Blob|HTMLImageElement|string, isKeyframe?: boolean, cropRatio?: number, cropTop?: number, cropBottom?: number}>} images
  * @param {object} cfg  overrides for LINESTACK_DEFAULTS
  * @param {(cur:number,total:number)=>void} [onProgress]
  * @returns {Promise<Blob[]>} one blob per page
@@ -155,13 +155,30 @@ export async function renderLineStack(images, cfg = {}, onProgress = () => {}) {
     const b = await loadBitmap(images[i].source);
     const { w, h } = bitmapSize(b);
     const isKeyframe = !!images[i].isKeyframe;
-    // Per-frame crop ratio overrides (falls back to global bottomKeepRatio)
-    const ratio = typeof images[i].cropRatio === 'number' ? images[i].cropRatio : c.bottomKeepRatio;
+    // Two-direction crop: cropTop removes from top, cropBottom removes from bottom.
+    // Legacy cropRatio (single value) maps to cropTop = 1 - ratio, cropBottom = 0.
+    let cropTop, cropBottom;
+    if (typeof images[i].cropTop === 'number' || typeof images[i].cropBottom === 'number') {
+      cropTop = typeof images[i].cropTop === 'number' ? images[i].cropTop : (1 - c.bottomKeepRatio);
+      cropBottom = typeof images[i].cropBottom === 'number' ? images[i].cropBottom : 0;
+    } else if (typeof images[i].cropRatio === 'number') {
+      cropTop = 1 - images[i].cropRatio;
+      cropBottom = 0;
+    } else {
+      cropTop = 1 - c.bottomKeepRatio;
+      cropBottom = 0;
+    }
+    // Clamp so the kept region is at least 5% of the frame
+    const keptRatio = Math.max(0.05, 1 - cropTop - cropBottom);
+    cropTop = Math.max(0, Math.min(1 - 0.05, cropTop));
+    cropBottom = Math.max(0, Math.min(1 - cropTop - 0.05, cropBottom));
+    
     const scale = c.outputWidth / w;
-    const keptH = isKeyframe ? h : Math.round(h * ratio);
+    const keptH = isKeyframe ? h : Math.round(h * keptRatio);
     const drawH = Math.round(keptH * scale);
     measured.push({
-      bitmap: b, natW: w, natH: h, height: drawH, isKeyframe, ratio,
+      bitmap: b, natW: w, natH: h, height: drawH, isKeyframe,
+      cropTop, cropBottom, keptRatio,
       captionText: images[i].captionText || '',
       hasBakedCaption: !!images[i].hasBakedCaption,
       captionScale: images[i].captionScale,
@@ -190,8 +207,8 @@ export async function renderLineStack(images, cfg = {}, onProgress = () => {}) {
       if (it.isKeyframe) {
         ctx.drawImage(it.bitmap, 0, 0, it.natW, it.natH, 0, y, c.outputWidth, it.height);
       } else {
-        const sy = it.natH * (1 - it.ratio);
-        const sh = it.natH * it.ratio;
+        const sy = it.natH * it.cropTop;
+        const sh = it.natH * it.keptRatio;
         ctx.drawImage(it.bitmap, 0, sy, it.natW, sh, 0, y, c.outputWidth, it.height);
       }
       if (!it.hasBakedCaption && it.captionText) {

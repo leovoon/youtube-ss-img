@@ -92,8 +92,6 @@ input[type="color"] {
   padding: 6px 10px; border-bottom: 1px solid var(--line);
   display: grid; gap: 6px;
 }
-
-/* Mode switch */
 .mode-switch { display: flex; gap: 2px; background: rgba(255,255,255,.06); border: 1px solid var(--line); border-radius: 8px; padding: 2px; width: fit-content; }
 .mode-switch__btn {
   padding: 5px 14px; border-radius: 6px; font-size: 11px; font-weight: 800;
@@ -102,11 +100,7 @@ input[type="color"] {
 }
 .mode-switch__btn.active { background: linear-gradient(135deg, rgba(255,54,92,.25), rgba(124,58,237,.25)); color: #fff; }
 .mode-switch__btn:active { transform: scale(0.96); }
-
-/* Settings inline */
-.settings-inline {
-  display: flex; gap: 6px; align-items: end; flex-wrap: wrap;
-}
+.settings-inline { display: flex; gap: 6px; align-items: end; flex-wrap: wrap; }
 .settings-inline[hidden] { display: none; }
 .si-field { display: grid; gap: 2px; min-width: 0; }
 .si-field label { display: flex; justify-content: space-between; gap: 4px; font-size: 9px; color: #cbd5e1; font-weight: 700; white-space: nowrap; }
@@ -115,10 +109,10 @@ input[type="color"] {
 .si-field--grow { flex: 1; min-width: 100px; }
 .si-group { display: flex; gap: 3px; }
 
-/* ─── Output section (the editing surface) ───────────────────────────────── */
+/* ─── Output section ─────────────────────────────────────────────────────── */
 .output-section {
   flex: 1; display: flex; flex-direction: column;
-  min-height: 0; /* allow flex child to shrink */
+  min-height: 0;
 }
 .output-head {
   display: flex; justify-content: space-between; align-items: center;
@@ -141,11 +135,12 @@ input[type="color"] {
 .output-strip {
   flex: 1; overflow-y: auto; overflow-x: hidden;
   padding: 0;
-  display: none; /* shown when linestack mode active */
+  display: none;
+  /* Zoom applied via CSS zoom property (JS sets this) */
 }
 .output-strip.active { display: block; }
 
-/* Each strip frame — shows the image as it will appear in the output */
+/* Each strip frame */
 .strip-frame {
   position: relative;
   width: 100%;
@@ -157,91 +152,95 @@ input[type="color"] {
 .strip-frame.drop-before { box-shadow: inset 0 3px 0 0 var(--accent); }
 .strip-frame.drop-after { box-shadow: inset 0 -3px 0 0 var(--accent); }
 
-/* The image inside the strip frame */
 .strip-frame__img {
   display: block; width: 100%; height: auto;
   user-select: none; -webkit-user-drag: none;
-  pointer-events: none; /* clicks go to the overlay */
+  pointer-events: none;
 }
 
-/* Overlay controls — positioned on top of the image */
+/* Overlay — hidden by default, revealed on hover */
 .strip-frame__overlay {
   position: absolute; inset: 0;
   display: flex; flex-direction: column;
   pointer-events: none;
+  opacity: 0;
+  transition: opacity 180ms var(--ease-out);
 }
 .strip-frame__overlay > * { pointer-events: auto; }
 
-/* Top bar: grip + position + type badge + skip button */
+/* Show overlay on hover (fine pointer) or always on touch */
+@media (hover: hover) and (pointer: fine) {
+  .strip-frame:hover .strip-frame__overlay { opacity: 1; }
+}
+/* Touch: always show controls (no hover available) */
+@media (hover: none), (pointer: coarse) {
+  .strip-frame__overlay { opacity: 1; }
+}
+
+/* Top bar */
 .strip-frame__top {
   display: flex; align-items: center; gap: 4px;
-  padding: 4px 6px;
-  background: linear-gradient(180deg, rgba(0,0,0,.65) 0%, transparent 100%);
+  padding: 5px 8px;
+  background: linear-gradient(180deg, rgba(0,0,0,.7) 0%, rgba(0,0,0,.3) 70%, transparent 100%);
 }
-
-/* Drag grip */
 .strip-frame__grip {
   cursor: grab; touch-action: none; user-select: none;
-  color: rgba(255,255,255,.7); font-size: 10px; font-weight: 800;
-  padding: 2px 4px; border-radius: 4px;
-  background: rgba(255,255,255,.1);
+  color: rgba(255,255,255,.8); font-size: 11px; font-weight: 800;
+  padding: 2px 5px; border-radius: 4px;
+  background: rgba(255,255,255,.12);
   transition: background-color 120ms var(--ease-out);
 }
-.strip-frame__grip:hover { background: rgba(255,255,255,.2); }
+.strip-frame__grip:hover { background: rgba(255,255,255,.25); }
 .strip-frame__grip:active { cursor: grabbing; }
-
-/* Position label */
 .strip-frame__pos {
   font-size: 10px; font-weight: 800; color: rgba(255,255,255,.8);
   font-variant-numeric: tabular-nums;
 }
-
-/* Type badge */
 .strip-frame__type {
   font-size: 9px; font-weight: 800; letter-spacing: .03em;
-  padding: 2px 6px; border-radius: 4px;
+  padding: 3px 8px; border-radius: 4px;
   cursor: pointer; user-select: none;
-  transition: background-color 120ms var(--ease-out);
+  transition: background-color 120ms var(--ease-out), filter 120ms var(--ease-out);
 }
-.strip-frame__type[data-type="keyframe"] {
-  background: rgba(255,54,92,.35); color: #fecdd3;
-}
-.strip-frame__type[data-type="subtitle"] {
-  background: rgba(124,58,237,.35); color: #ddd6fe;
-}
-.strip-frame__type:hover { filter: brightness(1.2); }
-
+.strip-frame__type[data-type="keyframe"] { background: rgba(255,54,92,.4); color: #fecdd3; }
+.strip-frame__type[data-type="subtitle"] { background: rgba(124,58,237,.4); color: #ddd6fe; }
+.strip-frame__type:hover { filter: brightness(1.3); }
 .spacer { flex: 1; }
-
-/* Skip (delete) button */
 .strip-frame__skip {
-  padding: 3px 7px; border-radius: 5px; font-size: 10px; font-weight: 800;
+  padding: 3px 8px; border-radius: 5px; font-size: 10px; font-weight: 800;
   background: rgba(239,68,68,.35); color: #fecaca; border: 0;
   cursor: pointer;
   transition: background-color 120ms var(--ease-out);
 }
-.strip-frame__skip:hover { background: rgba(239,68,68,.55); }
+.strip-frame__skip:hover { background: rgba(239,68,68,.6); }
 
-/* Bottom bar: per-frame crop slider (subtitle frames only) */
-.strip-frame__bottom {
+/* Bottom bar: two-direction crop sliders (subtitle frames only) */
+.strip-frame__crop {
   margin-top: auto;
-  padding: 4px 8px 6px;
-  background: linear-gradient(0deg, rgba(0,0,0,.7) 0%, transparent 100%);
-  display: none; /* shown for subtitle frames */
+  padding: 6px 10px 8px;
+  background: linear-gradient(0deg, rgba(0,0,0,.75) 0%, rgba(0,0,0,.3) 70%, transparent 100%);
+  display: none;
+  gap: 4px;
+  flex-direction: column;
 }
-.strip-frame[data-type="subtitle"] .strip-frame__bottom { display: flex; align-items: center; gap: 6px; }
+.strip-frame[data-type="subtitle"] .strip-frame__crop { display: flex; }
 
-.strip-frame__crop-label {
-  font-size: 9px; font-weight: 700; color: rgba(255,255,255,.7); white-space: nowrap;
+.crop-row {
+  display: flex; align-items: center; gap: 6px;
 }
-.strip-frame__crop-slider {
+.crop-row__label {
+  font-size: 9px; font-weight: 700; color: rgba(255,255,255,.65);
+  min-width: 42px; white-space: nowrap;
+}
+.crop-row__slider {
   flex: 1; accent-color: var(--accent-2); height: 16px;
 }
-.strip-frame__crop-val {
-  font-size: 9px; font-weight: 800; color: rgba(255,255,255,.8); min-width: 28px; text-align: right;
+.crop-row__val {
+  font-size: 9px; font-weight: 800; color: rgba(255,255,255,.8);
+  min-width: 28px; text-align: right;
 }
 
-/* Caption text overlay (for frames with non-baked captions) */
+/* Caption overlay */
 .strip-frame__caption {
   position: absolute; bottom: 0; left: 0; right: 0;
   padding: 4px 8px;
@@ -255,12 +254,10 @@ input[type="color"] {
 .strip-frame__caption:hover { background: rgba(0,0,0,.7); }
 .strip-frame__caption:focus { outline: none; border-color: rgba(255,54,92,.5); background: rgba(0,0,0,.8); }
 .strip-frame__caption:empty::before { content: attr(data-placeholder); color: #64748b; font-style: italic; }
-/* When crop slider is visible, caption sits above it */
-.strip-frame[data-type="subtitle"] .strip-frame__caption {
-  bottom: 28px;
-}
+/* When crop sliders visible, caption sits above them */
+.strip-frame[data-type="subtitle"] .strip-frame__caption { bottom: 56px; }
 
-/* ─── Collage preview container ──────────────────────────────────────────── */
+/* ─── Collage preview ────────────────────────────────────────────────────── */
 .preview-container {
   flex: 1; overflow: auto;
   display: grid; place-items: start center;
@@ -272,9 +269,7 @@ input[type="color"] {
 .block-overlay { position: absolute; inset: 0; pointer-events: none; }
 
 /* ─── Empty state ────────────────────────────────────────────────────────── */
-.empty-state {
-  flex: 1; display: grid; place-items: center; padding: 24px;
-}
+.empty-state { flex: 1; display: grid; place-items: center; padding: 24px; }
 .empty-state[hidden] { display: none; }
 .empty-state__inner { text-align: center; color: var(--muted); }
 .empty-state__inner p { margin: 6px 0; font-size: 13px; line-height: 1.5; }
@@ -283,8 +278,7 @@ input[type="color"] {
 /* ─── Export footer ──────────────────────────────────────────────────────── */
 .export-footer {
   display: grid; grid-template-columns: 1fr auto; gap: 6px;
-  padding: 8px 10px;
-  border-top: 1px solid var(--line);
+  padding: 8px 10px; border-top: 1px solid var(--line);
 }
 .export-btn { font-size: 12px; padding: 9px 14px; }
 .clear-btn { font-size: 11px; padding: 7px 9px; }
@@ -354,7 +348,7 @@ input[type="color"] {
 .block-box:hover .bh-s::after, .block-box.selected .bh-s::after { content:""; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:20px; height:4px; border-radius:4px; background:var(--accent); }
 .block-box:hover .bh-se::after, .block-box.selected .bh-se::after { content:""; position:absolute; right:2px; bottom:2px; width:8px; height:8px; border-radius:2px; background:var(--accent); }
 
-/* ─── Drop overlay for image files ───────────────────────────────────────── */
+/* ─── Drop overlay ───────────────────────────────────────────────────────── */
 .app.dragover::after {
   content: "Drop images here";
   position: fixed; inset: 0; z-index: 100;
@@ -365,16 +359,9 @@ input[type="color"] {
   pointer-events: none;
 }
 
-/* ─── Responsive ─────────────────────────────────────────────────────────── */
-@media (min-width: 760px) {
-  .app { max-width: 720px; }
-}
+@media (min-width: 760px) { .app { max-width: 720px; } }
 
-/* ─── Reduced motion ─────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    transition-duration: 1ms !important;
-    animation-duration: 1ms !important;
-  }
+  *, *::before, *::after { transition-duration: 1ms !important; animation-duration: 1ms !important; }
   button:active, .iconbtn:active, .mode-switch__btn:active { transform: none; }
 }

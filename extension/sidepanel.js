@@ -144,7 +144,7 @@ function setStatus(message, cls = '') {
 }
 
 // ---------------------------------------------------------------------------
-// Preview zoom (for collage mode)
+// Preview zoom (works for both strip and collage)
 // ---------------------------------------------------------------------------
 const ZOOM_MIN = 0.25;
 const ZOOM_MAX = 4;
@@ -152,8 +152,11 @@ const ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
 let previewZoom = 1;
 
 function applyPreviewZoom() {
+  // Apply zoom to whichever preview is active
   const stage = document.getElementById('previewStage');
   if (stage) stage.style.zoom = String(previewZoom);
+  // For the strip, zoom the strip container itself
+  if (els.outputStrip) els.outputStrip.style.zoom = String(previewZoom);
   if (els.zoomResetBtn) els.zoomResetBtn.textContent = `${Math.round(previewZoom * 100)}%`;
   if (els.zoomInBtn) els.zoomInBtn.disabled = previewZoom >= ZOOM_MAX;
   if (els.zoomOutBtn) els.zoomOutBtn.disabled = previewZoom <= ZOOM_MIN;
@@ -223,22 +226,26 @@ function renderStrip() {
   els.emptyState.hidden = true;
   
   const globalCrop = Number(els.ratio.value) || 0.2;
+  // Global default: cropTop = 1 - globalCrop, cropBottom = 0
+  const globalCropTop = 1 - globalCrop;
+  const globalCropBottom = 0;
   
   els.outputStrip.innerHTML = frames.map((f, i) => {
     const pos = String(i + 1).padStart(2, '0');
-    const cropRatio = typeof f.cropRatio === 'number' ? f.cropRatio : globalCrop;
-    const cropPct = Math.round(cropRatio * 100);
+    const cropTop = typeof f.cropTop === 'number' ? f.cropTop : globalCropTop;
+    const cropBottom = typeof f.cropBottom === 'number' ? f.cropBottom : globalCropBottom;
+    const keptRatio = Math.max(0.05, 1 - cropTop - cropBottom);
+    const topPct = Math.round(cropTop * 100);
+    const bottomPct = Math.round(cropBottom * 100);
     const timeStr = formatTime(f.time);
     const caption = f.captionText ? escapeHtml(f.captionText) : '';
     
-    // Calculate aspect ratio for display
-    // Keyframe: full frame (16:9)
-    // Subtitle: cropped bottom band (16 : (9 * cropRatio))
-    const aspectH = f.type === 'keyframe' ? 9 : (9 * cropRatio);
+    // Aspect ratio for display: keyframe = 16:9, subtitle = 16:(9 * keptRatio)
+    const aspectH = f.type === 'keyframe' ? 9 : (9 * keptRatio);
     const aspectRatio = `16 / ${aspectH}`;
     
     return `<div class="strip-frame" data-index="${i}" data-id="${f.id}" data-type="${f.type}">
-      <img class="strip-frame__img" src="${f.url}" alt="Frame ${pos}" style="aspect-ratio: ${aspectRatio}; object-fit: cover; object-position: ${f.type === 'subtitle' ? 'bottom' : 'center'};">
+      <img class="strip-frame__img" src="${f.url}" alt="Frame ${pos}" style="aspect-ratio: ${aspectRatio}; object-fit: cover; object-position: ${f.type === 'subtitle' ? `center ${(cropTop / (1 - keptRatio)) * 100}%` : 'center'};">
       <div class="strip-frame__overlay">
         <div class="strip-frame__top">
           <span class="strip-frame__grip" data-grip="${i}">⠿</span>
@@ -249,10 +256,17 @@ function renderStrip() {
           <button class="strip-frame__skip" data-action="skip">Skip</button>
         </div>
         ${caption && !f.hasBakedCaption ? `<div class="strip-frame__caption" contenteditable="true" data-caption-id="${f.id}" data-placeholder="Add caption…">${caption}</div>` : ''}
-        <div class="strip-frame__bottom">
-          <span class="strip-frame__crop-label">Crop</span>
-          <input type="range" class="strip-frame__crop-slider" min="8" max="45" step="1" value="${cropPct}" data-action="crop">
-          <span class="strip-frame__crop-val">${cropPct}%</span>
+        <div class="strip-frame__crop">
+          <div class="crop-row">
+            <span class="crop-row__label">Top crop</span>
+            <input type="range" class="crop-row__slider" min="0" max="90" step="1" value="${topPct}" data-crop="top">
+            <span class="crop-row__val">${topPct}%</span>
+          </div>
+          <div class="crop-row">
+            <span class="crop-row__label">Bottom</span>
+            <input type="range" class="crop-row__slider" min="0" max="90" step="1" value="${bottomPct}" data-crop="bottom">
+            <span class="crop-row__val">${bottomPct}%</span>
+          </div>
         </div>
       </div>
     </div>`;
@@ -284,31 +298,60 @@ els.outputStrip.addEventListener('click', async (ev) => {
   }
 });
 
-// Per-frame crop slider
+// Per-frame crop sliders (top and bottom)
 els.outputStrip.addEventListener('input', async (ev) => {
-  if (ev.target.dataset.action !== 'crop') return;
-  const frame = ev.target.closest('.strip-frame');
+  const slider = ev.target.closest('.crop-row__slider');
+  if (!slider) return;
+  const frame = slider.closest('.strip-frame');
   if (!frame) return;
   const idx = Number(frame.dataset.index);
-  const cropPct = Number(ev.target.value);
-  const cropRatio = cropPct / 100;
+  const direction = slider.dataset.crop; // 'top' or 'bottom'
+  const pct = Number(slider.value);
+  const ratio = pct / 100;
   
-  // Update the value label
-  const valEl = frame.querySelector('.strip-frame__crop-val');
-  if (valEl) valEl.textContent = `${cropPct}%`;
+  // Update the value label for this slider
+  const valEl = slider.parentElement.querySelector('.crop-row__val');
+  if (valEl) valEl.textContent = `${pct}%`;
   
-  // Update frame data
-  frames = frames.map((x, j) => j === idx ? { ...x, cropRatio } : x);
-  await saveFrames(frames);
+  // Compute both crop values
+  const f = frames[idx];
+  const globalCrop = Number(els.ratio.value) || 0.2;
+  let cropTop = typeof f.cropTop === 'number' ? f.cropTop : (1 - globalCrop);
+  let cropBottom = typeof f.cropBottom === 'number' ? f.cropBottom : 0;
   
-  // Update the image aspect ratio live
-  const img = frame.querySelector('.strip-frame__img');
-  if (img) {
-    const aspectH = 9 * cropRatio;
-    img.style.aspectRatio = `16 / ${aspectH}`;
+  if (direction === 'top') {
+    cropTop = ratio;
+    // Ensure at least 5% kept region
+    if (cropTop + cropBottom > 0.95) cropBottom = Math.max(0, 0.95 - cropTop);
+  } else {
+    cropBottom = ratio;
+    if (cropTop + cropBottom > 0.95) cropTop = Math.max(0, 0.95 - cropBottom);
   }
   
-  // Debounced export render
+  // Update frame data
+  frames = frames.map((x, j) => j === idx ? { ...x, cropTop, cropBottom } : x);
+  await saveFrames(frames);
+  
+  // Update the other slider if it was clamped
+  if (direction === 'top') {
+    const otherSlider = frame.querySelector('[data-crop="bottom"]');
+    const otherVal = frame.querySelectorAll('.crop-row__val')[1];
+    if (otherSlider) otherSlider.value = Math.round(cropBottom * 100);
+    if (otherVal) otherVal.textContent = `${Math.round(cropBottom * 100)}%`;
+  } else {
+    const otherSlider = frame.querySelector('[data-crop="top"]');
+    const otherVal = frame.querySelectorAll('.crop-row__val')[0];
+    if (otherSlider) otherSlider.value = Math.round(cropTop * 100);
+    if (otherVal) otherVal.textContent = `${Math.round(cropTop * 100)}%`;
+  }
+  
+  // Update the image aspect ratio live
+  const keptRatio = Math.max(0.05, 1 - cropTop - cropBottom);
+  const img = frame.querySelector('.strip-frame__img');
+  if (img) {
+    img.style.aspectRatio = `16 / ${9 * keptRatio}`;
+  }
+  
   scheduleExport();
 });
 
@@ -1035,7 +1078,8 @@ els.downloadExportBtn.addEventListener('click', async () => {
         frames.map((f) => ({
           source: f.url,
           isKeyframe: f.type === 'keyframe',
-          cropRatio: f.cropRatio,
+          cropTop: f.cropTop,
+          cropBottom: f.cropBottom,
           captionText: f.captionText,
           hasBakedCaption: f.hasBakedCaption,
           captionScale: f.captionScale,
@@ -1076,6 +1120,13 @@ els.zoomInBtn.addEventListener('click', () => stepZoom(1));
 els.zoomOutBtn.addEventListener('click', () => stepZoom(-1));
 els.zoomResetBtn.addEventListener('click', () => setPreviewZoom(1));
 els.previewContainer.addEventListener('wheel', (ev) => {
+  if (!(ev.ctrlKey || ev.metaKey)) return;
+  ev.preventDefault();
+  stepZoom(ev.deltaY < 0 ? 1 : -1);
+}, { passive: false });
+
+// Also zoom on Ctrl+wheel over the strip
+els.outputStrip.addEventListener('wheel', (ev) => {
   if (!(ev.ctrlKey || ev.metaKey)) return;
   ev.preventDefault();
   stepZoom(ev.deltaY < 0 ? 1 : -1);

@@ -55,8 +55,10 @@ function normalizeFrame(f, index) {
     hasBakedCaption: typeof f.hasBakedCaption === 'boolean' ? f.hasBakedCaption : Boolean(f.captionText),
     // Per-frame scale for custom (non-baked) caption overlays. 1 = default.
     captionScale: typeof f.captionScale === 'number' && Number.isFinite(f.captionScale) ? f.captionScale : 1,
-    // Per-frame subtitle crop ratio (0..1). null = use global setting.
-    cropRatio: typeof f.cropRatio === 'number' && Number.isFinite(f.cropRatio) ? f.cropRatio : null,
+    // Per-frame subtitle crop: cropTop removes from top, cropBottom from bottom.
+    // Both are 0..1 ratios. null = use global setting.
+    cropTop: typeof f.cropTop === 'number' && Number.isFinite(f.cropTop) ? f.cropTop : null,
+    cropBottom: typeof f.cropBottom === 'number' && Number.isFinite(f.cropBottom) ? f.cropBottom : null,
     capturedAt: f.capturedAt || Date.now(),
     // Per-frame collage view transform (zoom + pan). 1 / 0 / 0 = cover-fit.
     view: {
