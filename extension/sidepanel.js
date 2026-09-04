@@ -102,8 +102,8 @@ const els = {
   autoBtn: $('#autoBtn'),
   interval: $('#interval'),
   captureRule: $('#captureRule'),
-  ratio: $('#bottomKeepRatio'),
-  ratioLabel: $('#ratioLabel'),
+  ratio: null, // removed — per-frame crop only
+  ratioLabel: null,
   downloadExportBtn: $('#downloadExportBtn'),
   clearBtn: $('#clearBtn'),
   zoomInBtn: $('#zoomInBtn'),
@@ -155,9 +155,9 @@ function applyPreviewZoom() {
   // For collage: zoom the preview stage
   const stage = document.getElementById('previewStage');
   if (stage) stage.style.zoom = String(previewZoom);
-  // For strip: zoom the inner wrapper (not the scrollable container)
+  // For strip: scale via width (reliable across browsers)
   const inner = document.getElementById('stripInner');
-  if (inner) inner.style.zoom = String(previewZoom);
+  if (inner) inner.style.width = `${previewZoom * 100}%`;
   if (els.zoomResetBtn) els.zoomResetBtn.textContent = `${Math.round(previewZoom * 100)}%`;
   if (els.zoomInBtn) els.zoomInBtn.disabled = previewZoom >= ZOOM_MAX;
   if (els.zoomOutBtn) els.zoomOutBtn.disabled = previewZoom <= ZOOM_MIN;
@@ -226,9 +226,9 @@ function renderStrip() {
   
   els.emptyState.hidden = true;
   
-  const globalCrop = Number(els.ratio.value) || 0.2;
-  const globalCropTop = 1 - globalCrop;
-  const globalCropBottom = 0;
+  // Default crop for frames without per-frame overrides: bottom 20%
+  const defaultCropTop = 0.8;
+  const defaultCropBottom = 0;
   
   // Gap settings
   const gapEnabled = $('#enableGap').value === 'true';
@@ -245,36 +245,30 @@ function renderStrip() {
   
   frames.forEach((f, i) => {
     const pos = String(i + 1).padStart(2, '0');
-    const cropTop = typeof f.cropTop === 'number' ? f.cropTop : globalCropTop;
-    const cropBottom = typeof f.cropBottom === 'number' ? f.cropBottom : globalCropBottom;
+    const cropTop = typeof f.cropTop === 'number' ? f.cropTop : defaultCropTop;
+    const cropBottom = typeof f.cropBottom === 'number' ? f.cropBottom : defaultCropBottom;
     const keptRatio = Math.max(0.05, 1 - cropTop - cropBottom);
     const topPct = Math.round(cropTop * 100);
     const bottomPct = Math.round(cropBottom * 100);
     const timeStr = formatTime(f.time);
     const caption = f.captionText ? escapeHtml(f.captionText) : '';
     
-    // Aspect ratio of the visible region
-    const aspectH = f.type === 'keyframe' ? 9 : (9 * keptRatio);
+    const aspectH = 9 * keptRatio;
     const aspectRatio = `16 / ${aspectH}`;
+    const imgTopPct = -(cropTop / keptRatio) * 100;
     
-    // Image positioning for subtitle crop:
-    // The image is 16:9. We want to show only the region from cropTop to (1-cropBottom).
-    // Using overflow:hidden wrapper + absolute positioning:
-    //   image top = -(cropTop / keptRatio) * 100% of wrapper height
-    const imgTopPct = f.type === 'subtitle' ? -(cropTop / keptRatio) * 100 : 0;
-    
-    // Gap before this frame (if it's a visual and there's a previous frame)
+    // Gap before this frame
     const needsGap = showGaps && i > 0 && f.type === 'keyframe';
     if (needsGap) {
       html += `<div class="strip-gap" style="height:${gapPx}px"></div>`;
     }
     
-    // Watermark on last frame
     const showWatermark = watermark && i === frames.length - 1;
+    const hasCrop = typeof f.cropTop === 'number' || typeof f.cropBottom === 'number';
     
     html += `<div class="strip-frame" data-index="${i}" data-id="${f.id}" data-type="${f.type}">
       <div class="strip-frame__crop-view" style="aspect-ratio: ${aspectRatio};">
-        <img src="${f.url}" alt="Frame ${pos}" style="${f.type === 'subtitle' ? `position:absolute;top:${imgTopPct}%;width:100%;height:auto;` : ''}">
+        <img src="${f.url}" alt="Frame ${pos}" style="position:absolute;top:${imgTopPct}%;width:100%;height:auto;">
       </div>
       ${showWatermark ? `<div class="strip-watermark">${escapeHtml(watermark)}</div>` : ''}
       <div class="strip-frame__overlay">
@@ -284,14 +278,14 @@ function renderStrip() {
           ${timeStr ? `<span class="strip-frame__pos">${timeStr}</span>` : ''}
           <span class="strip-frame__type" data-type="${f.type}" data-action="toggle-type">${f.type === 'keyframe' ? 'VIS' : 'SUB'}</span>
           <span class="spacer"></span>
+          <button class="strip-act ${hasCrop ? 'strip-act--active' : ''}" data-action="toggle-crop" title="Crop">${ICON('crop', 10)}</button>
           <button class="strip-act" data-action="move-up" title="Move up">${ICON('arrow-up', 10)}</button>
           <button class="strip-act" data-action="move-down" title="Move down">${ICON('arrow-down', 10)}</button>
           <button class="strip-act" data-action="jump-top" title="Jump to top">${ICON('jump-top', 10)}</button>
           <button class="strip-act" data-action="jump-bottom" title="Jump to bottom">${ICON('jump-bottom', 10)}</button>
-          <button class="strip-act strip-act--danger" data-action="skip" title="Skip / delete">✕</button>
+          <button class="strip-act strip-act--danger" data-action="skip" title="Skip">${ICON('remove', 10)}</button>
         </div>
-        ${caption && !f.hasBakedCaption ? `<div class="strip-frame__caption" contenteditable="true" data-caption-id="${f.id}" data-placeholder="Add caption…">${caption}</div>` : ''}
-        <div class="strip-frame__crop">
+        <div class="strip-frame__crop" data-crop-panel="${f.id}">
           <div class="crop-half">
             <div class="crop-row">
               <span class="crop-row__label">Top</span>
@@ -307,6 +301,7 @@ function renderStrip() {
             </div>
           </div>
         </div>
+        ${caption && !f.hasBakedCaption ? `<div class="strip-frame__caption" contenteditable="true" data-caption-id="${f.id}" data-placeholder="Add caption…">${caption}</div>` : ''}
       </div>
     </div>`;
   });
@@ -314,9 +309,9 @@ function renderStrip() {
   html += '</div>';
   els.outputStrip.innerHTML = html;
   
-  // Apply zoom to inner wrapper
+  // Apply zoom via width scaling (reliable across browsers)
   const inner = document.getElementById('stripInner');
-  if (inner) inner.style.zoom = String(previewZoom);
+  if (inner) inner.style.width = `${previewZoom * 100}%`;
 }
 
 // ---------------------------------------------------------------------------
@@ -382,6 +377,13 @@ els.outputStrip.addEventListener('click', async (ev) => {
       j === idx ? { ...x, type: x.type === 'keyframe' ? 'subtitle' : 'keyframe' } : x
     );
     await updateFrames(next);
+  } else if (action === 'toggle-crop') {
+    // Toggle the crop panel visibility
+    const panel = frame.querySelector('.strip-frame__crop');
+    if (panel) {
+      panel.classList.toggle('open');
+      actionEl.classList.toggle('strip-act--active');
+    }
   } else if (action === 'skip') {
     const removed = frames[idx];
     const next = frames.filter((_, j) => j !== idx);
@@ -415,8 +417,7 @@ els.outputStrip.addEventListener('input', async (ev) => {
   
   // Compute both crop values
   const f = frames[idx];
-  const globalCrop = Number(els.ratio.value) || 0.2;
-  let cropTop = typeof f.cropTop === 'number' ? f.cropTop : (1 - globalCrop);
+  let cropTop = typeof f.cropTop === 'number' ? f.cropTop : 0.8; // default: bottom 20%
   let cropBottom = typeof f.cropBottom === 'number' ? f.cropBottom : 0;
   
   if (direction === 'top') {
@@ -719,11 +720,11 @@ function collageCfg() {
 function stackCfg() {
   return {
     outputWidth: Number($('#stackWidth').value),
-    bottomKeepRatio: Number($('#bottomKeepRatio').value),
+    bottomKeepRatio: 0.2, // default fallback; per-frame cropTop/cropBottom overrides
     enableKeyframeGap: $('#enableGap').value === 'true',
     gapSize: Number($('#gapSize').value) || 0,
     watermarkText: $('#stackWatermark').value.trim(),
-    jpgQuality: Number($('#stackQuality').value) || 0.9,
+    jpgQuality: 1.0, // always max quality
   };
 }
 
@@ -1156,24 +1157,17 @@ $('#collageColumns').addEventListener('input', syncBlockEditor);
 // ---------------------------------------------------------------------------
 // Export settings -> live preview
 // ---------------------------------------------------------------------------
-els.ratio.addEventListener('input', () => {
-  els.ratioLabel.textContent = `${Math.round(Number(els.ratio.value) * 100)}%`;
-  // Update strip to reflect new global crop
-  if (exportMode === 'linestack') renderStrip();
-});
-els.ratio.dispatchEvent(new Event('input'));
-
-const stackControls = ['#stackWidth', '#stackQuality', '#bottomKeepRatio', '#enableGap', '#gapSize', '#stackWatermark'];
+const stackControls = ['#stackWidth', '#enableGap', '#gapSize', '#stackWatermark'];
 const collageControls = ['#collageLayout', '#collageColumns', '#collageAspect', '#collageWidth', '#collageGap', '#collageRadius', '#collageBg'];
 [...stackControls, ...collageControls].forEach((sel) => {
   const el = $(sel);
   if (el) el.addEventListener('input', () => {
     scheduleExport();
-    // Gap, watermark, and crop ratio changes need strip re-render
-    if (exportMode === 'linestack' && ['#enableGap', '#gapSize', '#stackWatermark', '#bottomKeepRatio'].includes(sel)) {
+    // Gap and watermark changes need strip re-render
+    if (exportMode === 'linestack' && ['#enableGap', '#gapSize', '#stackWatermark'].includes(sel)) {
       renderStrip();
       const inner = document.getElementById('stripInner');
-      if (inner) inner.style.zoom = String(previewZoom);
+      if (inner) inner.style.width = `${previewZoom * 100}%`;
     }
   });
 });
