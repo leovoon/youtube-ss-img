@@ -1197,6 +1197,39 @@ $('#collageLayout').addEventListener('change', syncBlockEditor);
 $('#collageColumns').addEventListener('input', syncBlockEditor);
 
 // ---------------------------------------------------------------------------
+// Type-bound crop inputs (Top%/Bot% disabled when Type = VIS)
+// ---------------------------------------------------------------------------
+let savedSubCropTop = Number($('#defaultCropTop')?.value) || 80;
+let savedSubCropBot = Number($('#defaultCropBottom')?.value) || 0;
+
+function syncCropInputsToType() {
+  const type = $('#defaultCaptureType')?.value;
+  const topInput = $('#defaultCropTop');
+  const botInput = $('#defaultCropBottom');
+  if (!topInput || !botInput) return;
+
+  if (type === 'keyframe') {
+    // VIS: show 0/0 and disable
+    savedSubCropTop = Number(topInput.value) || savedSubCropTop;
+    savedSubCropBot = Number(botInput.value) || savedSubCropBot;
+    topInput.value = '0';
+    botInput.value = '0';
+    topInput.disabled = true;
+    botInput.disabled = true;
+  } else {
+    // SUB: restore saved values and enable
+    topInput.value = String(savedSubCropTop);
+    botInput.value = String(savedSubCropBot);
+    topInput.disabled = false;
+    botInput.disabled = false;
+  }
+}
+
+$('#defaultCaptureType')?.addEventListener('change', syncCropInputsToType);
+// Apply on boot
+syncCropInputsToType();
+
+// ---------------------------------------------------------------------------
 // Export settings -> live preview
 // ---------------------------------------------------------------------------
 const stackControls = ['#stackWidth', '#enableGap', '#gapSize', '#stackWatermark', '#defaultCropTop', '#defaultCropBottom', '#defaultCaptureType'];
@@ -1250,6 +1283,7 @@ els.downloadExportBtn.addEventListener('click', async () => {
 });
 
 els.clearBtn.addEventListener('click', async () => {
+  if (!confirm('Clear all frames? This cannot be undone.')) return;
   stopAuto();
   await clearFrames();
   clearBitmapCache();
