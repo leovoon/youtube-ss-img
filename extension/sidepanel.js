@@ -301,10 +301,10 @@ function renderStrip() {
             <span class="crop-row__val" data-crop-val="bottom">${bottomPct}%</span>
             <button class="crop-btn" data-crop-step="bottom" data-step="5">+</button>
           </span>
-          <button class="strip-act" data-action="move-up" title="Move up">${ICON('arrow-up', 10)}</button>
-          <button class="strip-act" data-action="move-down" title="Move down">${ICON('arrow-down', 10)}</button>
-          <button class="strip-act" data-action="jump-top" title="Jump to top">${ICON('jump-top', 10)}</button>
-          <button class="strip-act" data-action="jump-bottom" title="Jump to bottom">${ICON('jump-bottom', 10)}</button>
+          <button class="strip-act" data-action="move-up" title="Move up" ${i === 0 ? 'disabled' : ''}>${ICON('arrow-up', 10)}</button>
+          <button class="strip-act" data-action="move-down" title="Move down" ${i === frames.length - 1 ? 'disabled' : ''}>${ICON('arrow-down', 10)}</button>
+          <button class="strip-act" data-action="jump-top" title="Jump to top" ${i === 0 ? 'disabled' : ''}>${ICON('jump-top', 10)}</button>
+          <button class="strip-act" data-action="jump-bottom" title="Jump to bottom" ${i === frames.length - 1 ? 'disabled' : ''}>${ICON('jump-bottom', 10)}</button>
           <button class="strip-act strip-act--danger" data-action="skip" title="Skip">${ICON('remove', 10)}</button>
         </div>
         ${caption && !f.hasBakedCaption ? `<div class="strip-frame__caption" contenteditable="true" data-caption-id="${f.id}" data-placeholder="Add caption…">${caption}</div>` : ''}
@@ -388,8 +388,10 @@ els.outputStrip.addEventListener('click', async (ev) => {
   
   if (action === 'toggle-type') {
     const f = frames[idx];
+    const newType = f.type === 'keyframe' ? 'subtitle' : 'keyframe';
+    const defaults = getDefaultCrop(newType);
     const next = frames.map((x, j) =>
-      j === idx ? { ...x, type: x.type === 'keyframe' ? 'subtitle' : 'keyframe' } : x
+      j === idx ? { ...x, type: newType, cropTop: defaults.top, cropBottom: defaults.bottom } : x
     );
     await updateFrames(next);
   } else if (action === 'skip') {
@@ -536,8 +538,10 @@ els.outputStrip.addEventListener('pointermove', (ev) => {
   
   if (!targetInfo) return;
   
-  const midY = targetInfo.rect.top + targetInfo.rect.height / 2;
-  const position = cursorY < midY ? 'before' : 'after';
+  // Use 60/40 threshold: top 60% = "before", bottom 40% = "after"
+  // This makes it easier to drop above a frame when dragging upward
+  const threshold = targetInfo.rect.top + targetInfo.rect.height * 0.6;
+  const position = cursorY < threshold ? 'before' : 'after';
   targetInfo.el.classList.add(`drop-${position}`);
 });
 
