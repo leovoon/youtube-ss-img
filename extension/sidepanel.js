@@ -280,30 +280,21 @@ function renderStrip() {
           ${timeStr ? `<span class="strip-frame__pos">${timeStr}</span>` : ''}
           <span class="strip-frame__type" data-type="${f.type}" data-action="toggle-type">${f.type === 'keyframe' ? 'VIS' : 'SUB'}</span>
           <span class="spacer"></span>
-          <button class="strip-act ${hasCrop ? 'strip-act--active' : ''}" data-action="toggle-crop" title="Crop">${ICON('crop', 10)}</button>
+          <span class="crop-inline">
+            <button class="crop-btn" data-crop-step="top" data-step="-5">−</button>
+            <span class="crop-row__val" data-crop-val="top">${topPct}%</span>
+            <button class="crop-btn" data-crop-step="top" data-step="5">+</button>
+          </span>
+          <span class="crop-inline">
+            <button class="crop-btn" data-crop-step="bottom" data-step="-5">−</button>
+            <span class="crop-row__val" data-crop-val="bottom">${bottomPct}%</span>
+            <button class="crop-btn" data-crop-step="bottom" data-step="5">+</button>
+          </span>
           <button class="strip-act" data-action="move-up" title="Move up">${ICON('arrow-up', 10)}</button>
           <button class="strip-act" data-action="move-down" title="Move down">${ICON('arrow-down', 10)}</button>
           <button class="strip-act" data-action="jump-top" title="Jump to top">${ICON('jump-top', 10)}</button>
           <button class="strip-act" data-action="jump-bottom" title="Jump to bottom">${ICON('jump-bottom', 10)}</button>
           <button class="strip-act strip-act--danger" data-action="skip" title="Skip">${ICON('remove', 10)}</button>
-        </div>
-        <div class="strip-frame__crop" data-crop-panel="${f.id}">
-          <div class="crop-half">
-            <div class="crop-row">
-              <span class="crop-row__label">Top</span>
-              <button class="crop-btn" data-crop-step="top" data-step="-5">−</button>
-              <span class="crop-row__val" data-crop-val="top">${topPct}%</span>
-              <button class="crop-btn" data-crop-step="top" data-step="5">+</button>
-            </div>
-          </div>
-          <div class="crop-half">
-            <div class="crop-row">
-              <span class="crop-row__label">Bot</span>
-              <button class="crop-btn" data-crop-step="bottom" data-step="-5">−</button>
-              <span class="crop-row__val" data-crop-val="bottom">${bottomPct}%</span>
-              <button class="crop-btn" data-crop-step="bottom" data-step="5">+</button>
-            </div>
-          </div>
         </div>
         ${caption && !f.hasBakedCaption ? `<div class="strip-frame__caption" contenteditable="true" data-caption-id="${f.id}" data-placeholder="Add caption…">${caption}</div>` : ''}
       </div>
@@ -381,13 +372,6 @@ els.outputStrip.addEventListener('click', async (ev) => {
       j === idx ? { ...x, type: x.type === 'keyframe' ? 'subtitle' : 'keyframe' } : x
     );
     await updateFrames(next);
-  } else if (action === 'toggle-crop') {
-    // Toggle the crop panel visibility
-    const panel = frame.querySelector('.strip-frame__crop');
-    if (panel) {
-      panel.classList.toggle('open');
-      actionEl.classList.toggle('strip-act--active');
-    }
   } else if (action === 'skip') {
     const removed = frames[idx];
     const next = frames.filter((_, j) => j !== idx);
@@ -581,15 +565,19 @@ async function captureAndStore({ auto = false } = {}) {
     }
     let next = await appendCapture(response);
     next = applyCaptureRule(next);
+    // Auto-capture defaults to subtitle type
+    if (auto && next.length > 0) {
+      next = next.map((f, i) => i === next.length - 1 ? { ...f, type: 'subtitle' } : f);
+    }
     frames = next;
     await saveFrames(frames);
     renderStrip();
     scheduleExport();
     setStatus(`Captured #${frames.length}`, 'ok');
-    // Auto-scroll to newest frame during auto-capture
+    // Auto-scroll window to bottom during auto-capture
     if (auto && exportMode === 'linestack') {
       requestAnimationFrame(() => {
-        els.outputStrip.scrollTop = els.outputStrip.scrollHeight;
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
       });
     }
   } catch (err) {
