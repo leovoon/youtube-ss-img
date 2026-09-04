@@ -16,7 +16,7 @@ import {
 // ---------------------------------------------------------------------------
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
-const { insertionIndexForPoint, reorderByInsertion, latestCaptureFrame } = globalThis.YTFrameCore;
+const { insertionIndexForPoint, reorderByInsertion } = globalThis.YTFrameCore;
 
 function move(arr, from, to) {
   if (to < 0 || to >= arr.length) return arr;
@@ -31,7 +31,7 @@ function escapeHtml(s) {
 }
 
 function formatTime(seconds) {
-  if (typeof seconds !== 'number') return '—';
+  if (typeof seconds !== 'number') return '';
   const s = Math.floor(seconds % 60).toString().padStart(2, '0');
   const m = Math.floor(seconds / 60) % 60;
   const h = Math.floor(seconds / 3600);
@@ -57,7 +57,7 @@ let frames = [];
 let autoTimer = null;
 let autoRunning = false;
 let autoVideoId = null;
-let exportMode = 'linestack'; // 'linestack' | 'collage'
+let exportMode = 'linestack';
 let selectedId = null;
 
 let lastStackBlobs = [];
@@ -71,10 +71,8 @@ let dragCueText = '';
 let frameSaveQueue = Promise.resolve();
 let frameSavesPending = 0;
 
-// Frame list drag-to-reorder state
-let listDragFrom = null;
-let listDragOverIndex = null;
-let listDragOverPosition = null; // 'before' | 'after'
+// Strip drag state
+let stripDragState = null;
 
 function saveFrames(next) {
   frameSavesPending += 1;
@@ -86,8 +84,8 @@ function saveFrames(next) {
 async function updateFrames(next) {
   frames = next;
   await saveFrames(frames);
-  renderFrameList();
-  schedulePreview();
+  renderStrip();
+  scheduleExport();
 }
 
 // ---------------------------------------------------------------------------
@@ -96,9 +94,10 @@ async function updateFrames(next) {
 const els = {
   status: $('#status'),
   countLabel: $('#countLabel'),
-  frameList: $('#frameList'),
-  preview: $('#preview'),
+  outputStrip: $('#outputStrip'),
+  previewContainer: $('#previewContainer'),
   previewLabel: $('#previewLabel'),
+  emptyState: $('#emptyState'),
   captureBtn: $('#captureBtn'),
   autoBtn: $('#autoBtn'),
   interval: $('#interval'),
@@ -106,14 +105,12 @@ const els = {
   ratio: $('#bottomKeepRatio'),
   ratioLabel: $('#ratioLabel'),
   downloadExportBtn: $('#downloadExportBtn'),
-  downloadCurrentBtn: $('#downloadCurrentBtn'),
   clearBtn: $('#clearBtn'),
   zoomInBtn: $('#zoomInBtn'),
   zoomOutBtn: $('#zoomOutBtn'),
   zoomResetBtn: $('#zoomResetBtn'),
   uploadBtn: $('#uploadBtn'),
   uploadInput: $('#uploadInput'),
-  frameZoom: $('#frameZoom'),
   // Collage block editor
   blockEditor: $('#blockEditor'),
   blockTitle: $('#blockTitle'),
@@ -147,7 +144,7 @@ function setStatus(message, cls = '') {
 }
 
 // ---------------------------------------------------------------------------
-// Preview zoom
+// Preview zoom (for collage mode)
 // ---------------------------------------------------------------------------
 const ZOOM_MIN = 0.25;
 const ZOOM_MAX = 4;
@@ -179,56 +176,27 @@ function stepZoom(dir) {
 }
 
 // ---------------------------------------------------------------------------
-// Preview rendering
-// ---------------------------------------------------------------------------
-function setPreviewImage(blob, label) {
-  els.preview.dataset.collage = exportMode === 'collage' ? '1' : '0';
-  const nextUrl = URL.createObjectURL(blob);
-  let img = document.getElementById('previewImg');
-  if (!img) {
-    els.preview.innerHTML =
-      `<div class="preview-stage" id="previewStage">` +
-        `<img id="previewImg" alt="${label} preview" draggable="false">` +
-        `<div class="block-overlay" id="blockOverlay"></div>` +
-      `</div>`;
-    img = document.getElementById('previewImg');
-  }
-  const oldUrl = previewUrl;
-  previewUrl = nextUrl;
-  img.onload = () => { if (oldUrl && oldUrl !== nextUrl) URL.revokeObjectURL(oldUrl); };
-  img.src = nextUrl;
-  els.previewLabel.textContent = label;
-  const overlay = document.getElementById('blockOverlay');
-  if (overlay && exportMode !== 'collage') overlay.innerHTML = '';
-  applyPreviewZoom();
-}
-
-function setPreviewEmpty(message) {
-  els.preview.dataset.collage = '0';
-  if (previewUrl) { URL.revokeObjectURL(previewUrl); previewUrl = null; }
-  els.preview.innerHTML = `<div class="empty-illu">${chinchilla(80)}<div class="bubble"><span>${escapeHtml(message)}</span></div></div>`;
-}
-
-// ---------------------------------------------------------------------------
 // Export mode switch
 // ---------------------------------------------------------------------------
 function setExportMode(mode) {
   exportMode = mode;
   $$('.mode-switch__btn').forEach((b) => b.classList.toggle('active', b.dataset.mode === mode));
   $$('[data-settings]').forEach((p) => { p.hidden = p.dataset.settings !== mode; });
-  // Update export button label
-  els.downloadExportBtn.innerHTML = mode === 'linestack'
-    ? `${ICON('download')}<span class="btxt">Download LineStack</span>`
-    : `${ICON('download')}<span class="btxt">Download Collage</span>`;
-  // In collage mode, the block overlay is active
-  if (mode !== 'collage') {
-    const overlay = document.getElementById('blockOverlay');
-    if (overlay) overlay.innerHTML = '';
-    els.blockEditor.hidden = true;
-    selectedId = null;
+  
+  // Show/hide appropriate preview containers
+  if (mode === 'linestack') {
+    els.outputStrip.classList.add('active');
+    els.previewContainer.hidden = true;
+    els.downloadExportBtn.innerHTML = `${ICON('download')}<span class="btxt">Download LineStack</span>`;
+    renderStrip();
+  } else {
+    els.outputStrip.classList.remove('active');
+    els.previewContainer.hidden = false;
+    els.downloadExportBtn.innerHTML = `${ICON('download')}<span class="btxt">Download Collage</span>`;
   }
+  
   syncBlockEditor();
-  schedulePreview();
+  scheduleExport();
 }
 
 $$('.mode-switch__btn').forEach((btn) => {
@@ -236,169 +204,206 @@ $$('.mode-switch__btn').forEach((btn) => {
 });
 
 // ---------------------------------------------------------------------------
-// Frame list rendering
+// Output strip rendering (LineStack editing surface)
 // ---------------------------------------------------------------------------
-function renderFrameList() {
+function renderStrip() {
   els.countLabel.textContent = `${frames.length} / ${MAX_FRAMES}`;
+  
   if (!frames.length) {
-    els.frameList.innerHTML = '<p class="empty">Capture frames to start building your stack.</p>';
+    els.outputStrip.innerHTML = '';
+    els.emptyState.hidden = false;
+    els.emptyState.innerHTML = `<div class="empty-state__inner">
+      ${chinchilla(80)}
+      <p>Capture frames to build your LineStack</p>
+      <p class="empty-state__hint">💡 Turn on captions in YouTube for subtitle bands</p>
+    </div>`;
     return;
   }
-  els.frameList.innerHTML = frames.map((f, i) => {
+  
+  els.emptyState.hidden = true;
+  
+  const globalCrop = Number(els.ratio.value) || 0.2;
+  
+  els.outputStrip.innerHTML = frames.map((f, i) => {
     const pos = String(i + 1).padStart(2, '0');
-    const sel = f.id === selectedId;
-    const cap = f.captionText ? escapeHtml(f.captionText) : '';
-    const capClass = f.hasBakedCaption ? 'frame-card__caption' : 'frame-card__caption editable';
-    const capAttr = f.hasBakedCaption
-      ? ''
-      : ` contenteditable="true" data-placeholder="Add caption…" data-caption-id="${f.id}"`;
-    const typeLabel = f.type === 'keyframe' ? 'KEY' : 'SUB';
-    return `<div class="frame-card ${sel ? 'selected' : ''}" data-index="${i}" data-id="${f.id}" data-type="${f.type}" draggable="false">
-      <div class="frame-card__grip" data-grip="${i}" title="Drag to reorder">⠿${pos}</div>
-      <div class="frame-card__thumb">
-        <img src="${f.url}" alt="Frame ${pos}" loading="lazy" draggable="false">
-      </div>
-      <div class="frame-card__info">
-        <div class="frame-card__title">
-          <span>#${pos}</span>
-          <span class="frame-card__time">${formatTime(f.time)}</span>
+    const cropRatio = typeof f.cropRatio === 'number' ? f.cropRatio : globalCrop;
+    const cropPct = Math.round(cropRatio * 100);
+    const timeStr = formatTime(f.time);
+    const caption = f.captionText ? escapeHtml(f.captionText) : '';
+    
+    // Calculate aspect ratio for display
+    // Keyframe: full frame (16:9)
+    // Subtitle: cropped bottom band (16 : (9 * cropRatio))
+    const aspectH = f.type === 'keyframe' ? 9 : (9 * cropRatio);
+    const aspectRatio = `16 / ${aspectH}`;
+    
+    return `<div class="strip-frame" data-index="${i}" data-id="${f.id}" data-type="${f.type}">
+      <img class="strip-frame__img" src="${f.url}" alt="Frame ${pos}" style="aspect-ratio: ${aspectRatio}; object-fit: cover; object-position: ${f.type === 'subtitle' ? 'bottom' : 'center'};">
+      <div class="strip-frame__overlay">
+        <div class="strip-frame__top">
+          <span class="strip-frame__grip" data-grip="${i}">⠿</span>
+          <span class="strip-frame__pos">#${pos}</span>
+          ${timeStr ? `<span class="strip-frame__pos">${timeStr}</span>` : ''}
+          <span class="strip-frame__type" data-type="${f.type}" data-action="toggle-type">${f.type === 'keyframe' ? 'KEY' : 'SUB'}</span>
+          <span class="spacer"></span>
+          <button class="strip-frame__skip" data-action="skip">Skip</button>
         </div>
-        <div class="${capClass}"${capAttr}>${cap}</div>
-      </div>
-      <div class="frame-card__actions">
-        <button class="type-toggle" data-action="toggle-type" data-active="${f.type}" title="Toggle keyframe / subtitle band">${typeLabel}</button>
-        <button class="ghost" data-action="delete" title="Delete frame">${ICON('remove', 10)}</button>
+        ${caption && !f.hasBakedCaption ? `<div class="strip-frame__caption" contenteditable="true" data-caption-id="${f.id}" data-placeholder="Add caption…">${caption}</div>` : ''}
+        <div class="strip-frame__bottom">
+          <span class="strip-frame__crop-label">Crop</span>
+          <input type="range" class="strip-frame__crop-slider" min="8" max="45" step="1" value="${cropPct}" data-action="crop">
+          <span class="strip-frame__crop-val">${cropPct}%</span>
+        </div>
       </div>
     </div>`;
   }).join('');
 }
 
 // ---------------------------------------------------------------------------
-// Frame list interactions
+// Strip interactions
 // ---------------------------------------------------------------------------
-
-// Click handler for type toggle, delete, and caption editing
-els.frameList.addEventListener('click', async (ev) => {
-  const actionBtn = ev.target.closest('[data-action]');
-  if (!actionBtn) return;
-  const card = actionBtn.closest('.frame-card');
-  if (!card) return;
-  const idx = Number(card.dataset.index);
-  const action = actionBtn.dataset.action;
-
+els.outputStrip.addEventListener('click', async (ev) => {
+  const actionEl = ev.target.closest('[data-action]');
+  if (!actionEl) return;
+  
+  const frame = actionEl.closest('.strip-frame');
+  if (!frame) return;
+  const idx = Number(frame.dataset.index);
+  const action = actionEl.dataset.action;
+  
   if (action === 'toggle-type') {
     const f = frames[idx];
     const next = frames.map((x, j) =>
       j === idx ? { ...x, type: x.type === 'keyframe' ? 'subtitle' : 'keyframe' } : x
     );
     await updateFrames(next);
-  } else if (action === 'delete') {
+  } else if (action === 'skip') {
     const next = frames.filter((_, j) => j !== idx);
-    if (selectedId === frames[idx]?.id) selectedId = null;
     await updateFrames(next);
+    setStatus(`Skipped frame`, 'ok');
   }
 });
 
-// Inline caption editing
+// Per-frame crop slider
+els.outputStrip.addEventListener('input', async (ev) => {
+  if (ev.target.dataset.action !== 'crop') return;
+  const frame = ev.target.closest('.strip-frame');
+  if (!frame) return;
+  const idx = Number(frame.dataset.index);
+  const cropPct = Number(ev.target.value);
+  const cropRatio = cropPct / 100;
+  
+  // Update the value label
+  const valEl = frame.querySelector('.strip-frame__crop-val');
+  if (valEl) valEl.textContent = `${cropPct}%`;
+  
+  // Update frame data
+  frames = frames.map((x, j) => j === idx ? { ...x, cropRatio } : x);
+  await saveFrames(frames);
+  
+  // Update the image aspect ratio live
+  const img = frame.querySelector('.strip-frame__img');
+  if (img) {
+    const aspectH = 9 * cropRatio;
+    img.style.aspectRatio = `16 / ${aspectH}`;
+  }
+  
+  // Debounced export render
+  scheduleExport();
+});
+
+// Caption editing
 async function saveCaptionEdit(id, el) {
   const text = el.textContent.trim();
   const f = frames.find((x) => x.id === id);
   if (!f || text === (f.captionText || '')) return;
   frames = frames.map((x) => (x.id === id ? { ...x, captionText: text } : x));
   await saveFrames(frames);
-  schedulePreview();
+  scheduleExport();
 }
 
-els.frameList.addEventListener('blur', (ev) => {
-  const el = ev.target.closest('.caption.editable, .frame-card__caption.editable');
+els.outputStrip.addEventListener('blur', (ev) => {
+  const el = ev.target.closest('.strip-frame__caption');
   if (el?.dataset.captionId) saveCaptionEdit(el.dataset.captionId, el);
 }, true);
 
-els.frameList.addEventListener('keydown', (ev) => {
-  const el = ev.target.closest('.frame-card__caption.editable');
+els.outputStrip.addEventListener('keydown', (ev) => {
+  const el = ev.target.closest('.strip-frame__caption');
   if (!el) return;
   if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); el.blur(); }
   else if (ev.key === 'Escape') { ev.preventDefault(); el.blur(); }
 });
 
 // ---------------------------------------------------------------------------
-// Frame list drag-to-reorder (pointer-based, via grip handle)
+// Strip drag-to-reorder
 // ---------------------------------------------------------------------------
-let listPointerState = null;
-
-els.frameList.addEventListener('pointerdown', (ev) => {
-  const grip = ev.target.closest('.frame-card__grip');
+els.outputStrip.addEventListener('pointerdown', (ev) => {
+  const grip = ev.target.closest('.strip-frame__grip');
   if (!grip) return;
-  const card = grip.closest('.frame-card');
-  if (!card) return;
+  const frame = grip.closest('.strip-frame');
+  if (!frame) return;
   ev.preventDefault();
-  const idx = Number(card.dataset.index);
-  listPointerState = {
+  const idx = Number(frame.dataset.index);
+  stripDragState = {
     fromIndex: idx,
     startX: ev.clientX,
     startY: ev.clientY,
     moved: false,
-    card,
+    frame,
   };
-  card.classList.add('dragging');
+  frame.classList.add('dragging');
   grip.setPointerCapture(ev.pointerId);
 });
 
-els.frameList.addEventListener('pointermove', (ev) => {
-  if (!listPointerState) return;
-  const distance = Math.hypot(ev.clientX - listPointerState.startX, ev.clientY - listPointerState.startY);
+els.outputStrip.addEventListener('pointermove', (ev) => {
+  if (!stripDragState) return;
+  const distance = Math.hypot(ev.clientX - stripDragState.startX, ev.clientY - stripDragState.startY);
   if (distance < 5) return;
-  listPointerState.moved = true;
-
-  // Find which card the pointer is over
-  $$('.frame-card', els.frameList).forEach((c) => {
-    c.classList.remove('drop-before', 'drop-after');
+  stripDragState.moved = true;
+  
+  $$('.strip-frame', els.outputStrip).forEach((f) => {
+    f.classList.remove('drop-before', 'drop-after');
   });
-
-  const target = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.frame-card');
-  if (!target || target === listPointerState.card) return;
-
+  
+  const target = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.strip-frame');
+  if (!target || target === stripDragState.frame) return;
+  
   const rect = target.getBoundingClientRect();
   const midY = rect.top + rect.height / 2;
   const position = ev.clientY < midY ? 'before' : 'after';
   target.classList.add(`drop-${position}`);
-  listDragOverIndex = Number(target.dataset.index);
-  listDragOverPosition = position;
 });
 
-els.frameList.addEventListener('pointerup', async (ev) => {
-  if (!listPointerState) return;
-  const state = listPointerState;
-  listPointerState = null;
-  state.card.classList.remove('dragging');
-  $$('.frame-card', els.frameList).forEach((c) => {
-    c.classList.remove('drop-before', 'drop-after');
+els.outputStrip.addEventListener('pointerup', async (ev) => {
+  if (!stripDragState) return;
+  const state = stripDragState;
+  stripDragState = null;
+  state.frame.classList.remove('dragging');
+  
+  const dropTarget = $('.strip-frame.drop-before, .strip-frame.drop-after', els.outputStrip);
+  $$('.strip-frame', els.outputStrip).forEach((f) => {
+    f.classList.remove('drop-before', 'drop-after');
   });
-
-  if (!state.moved || listDragOverIndex == null) {
-    listDragOverIndex = null;
-    listDragOverPosition = null;
-    return;
-  }
-
-  let targetIndex = listDragOverIndex;
-  if (listDragOverPosition === 'after') targetIndex += 1;
-  listDragOverIndex = null;
-  listDragOverPosition = null;
-
-  if (targetIndex !== state.fromIndex) {
-    const next = reorderByInsertion(frames, state.fromIndex, targetIndex);
+  
+  if (!state.moved || !dropTarget) return;
+  
+  const targetIdx = Number(dropTarget.dataset.index);
+  const position = dropTarget.classList.contains('drop-before') ? 'before' : 'after';
+  let insertIdx = position === 'before' ? targetIdx : targetIdx + 1;
+  
+  if (insertIdx !== state.fromIndex) {
+    const next = reorderByInsertion(frames, state.fromIndex, insertIdx);
     await updateFrames(next);
   }
 });
 
-els.frameList.addEventListener('pointercancel', () => {
-  if (listPointerState) {
-    listPointerState.card.classList.remove('dragging');
-    listPointerState = null;
+els.outputStrip.addEventListener('pointercancel', () => {
+  if (stripDragState) {
+    stripDragState.frame.classList.remove('dragging');
+    stripDragState = null;
   }
-  $$('.frame-card', els.frameList).forEach((c) => {
-    c.classList.remove('drop-before', 'drop-after');
+  $$('.strip-frame', els.outputStrip).forEach((f) => {
+    f.classList.remove('drop-before', 'drop-after');
   });
 });
 
@@ -432,8 +437,8 @@ async function captureAndStore({ auto = false } = {}) {
     next = applyCaptureRule(next);
     frames = next;
     await saveFrames(frames);
-    renderFrameList();
-    schedulePreview();
+    renderStrip();
+    scheduleExport();
     setStatus(`Captured #${frames.length}`, 'ok');
   } catch (err) {
     console.error(err);
@@ -489,8 +494,8 @@ async function uploadFiles(files) {
     setStatus(`Adding ${imgs.length} image${imgs.length > 1 ? 's' : ''}…`);
     for (const f of imgs) frames = await appendUpload(f);
     await saveFrames(frames);
-    renderFrameList();
-    schedulePreview();
+    renderStrip();
+    scheduleExport();
     setStatus(`Added ${imgs.length} image${imgs.length > 1 ? 's' : ''} (${frames.length}).`, 'ok');
   } catch (err) {
     console.error(err);
@@ -507,7 +512,6 @@ els.uploadInput.addEventListener('change', () => {
   els.uploadInput.value = '';
 });
 
-// Window-level drop for image files
 const appEl = $('.app');
 window.addEventListener('dragover', (ev) => {
   if (ev.dataTransfer && [...ev.dataTransfer.types].includes('Files')) {
@@ -525,7 +529,6 @@ window.addEventListener('drop', async (ev) => {
   if (files.length) await uploadFiles(files);
 });
 
-// Paste from clipboard
 window.addEventListener('paste', async (ev) => {
   const t = ev.target;
   if (t && t.closest && t.closest('input, textarea, select, [contenteditable="true"]')) return;
@@ -544,13 +547,13 @@ window.addEventListener('paste', async (ev) => {
 });
 
 // ---------------------------------------------------------------------------
-// Live preview (debounced)
+// Export rendering (debounced)
 // ---------------------------------------------------------------------------
-let previewTimer = null;
-function schedulePreview() {
+let exportTimer = null;
+function scheduleExport() {
   previewToken += 1;
-  clearTimeout(previewTimer);
-  previewTimer = setTimeout(runPreview, 300);
+  clearTimeout(exportTimer);
+  exportTimer = setTimeout(runExport, 300);
 }
 
 function collageCfg() {
@@ -577,32 +580,20 @@ function stackCfg() {
   };
 }
 
-async function runPreview() {
+async function runExport() {
   if (!frames.length) {
-    setPreviewEmpty('Capture frames — the preview updates automatically.');
     els.downloadExportBtn.disabled = true;
-    els.downloadCurrentBtn.disabled = true;
     return;
   }
-
+  
   const token = previewToken;
   try {
     if (exportMode === 'linestack') {
-      const blobs = await renderLineStack(
-        frames.map((f) => ({
-          source: f.url,
-          isKeyframe: f.type === 'keyframe',
-          captionText: f.captionText,
-          hasBakedCaption: f.hasBakedCaption,
-          captionScale: f.captionScale,
-        })),
-        stackCfg()
-      );
-      if (token !== previewToken) return;
-      lastStackBlobs = blobs;
-      setPreviewImage(blobs[0], blobs.length > 1 ? `LineStack · page 1/${blobs.length}` : 'LineStack');
+      // For LineStack, the strip IS the preview — no canvas render needed until download
       els.downloadExportBtn.disabled = false;
+      els.previewLabel.textContent = `${frames.length} frames`;
     } else {
+      // For Collage, render to canvas
       const result = await renderCollage(
         frames.map((f) => ({
           source: f.url,
@@ -617,18 +608,24 @@ async function runPreview() {
       if (token !== previewToken || !result) return;
       lastCollageBlob = result.blob;
       lastCollageLayout = { layout: result.layout, width: result.width, height: result.height };
-      setPreviewImage(result.blob, 'Collage');
+      
+      const img = document.getElementById('previewImg');
+      if (img) {
+        const nextUrl = URL.createObjectURL(result.blob);
+        const oldUrl = previewUrl;
+        img.onload = () => { if (oldUrl && oldUrl !== nextUrl) URL.revokeObjectURL(oldUrl); };
+        previewUrl = nextUrl;
+        img.src = nextUrl;
+      }
       buildBlockOverlay();
       els.downloadExportBtn.disabled = false;
+      els.previewLabel.textContent = 'live';
     }
   } catch (err) {
     if (token !== previewToken) return;
     console.error(err);
-    setStatus(`Preview failed: ${err.message || err}`, 'warn');
+    setStatus(`Export failed: ${err.message || err}`, 'warn');
   }
-
-  // Enable download current frame
-  els.downloadCurrentBtn.disabled = !latestCaptureFrame(frames);
 }
 
 // ---------------------------------------------------------------------------
@@ -669,24 +666,23 @@ function buildBlockOverlay() {
     .join('');
 }
 
-// Block overlay pointer events (collage drag: pan, resize, reorder)
-els.preview.addEventListener('pointerdown', (ev) => {
+// Block overlay pointer events (collage drag)
+els.previewContainer.addEventListener('pointerdown', (ev) => {
   if (exportMode !== 'collage') return;
   const grip = ev.target.closest('.block-box__grip');
   const edge = ev.target.closest('.bh');
   const box = ev.target.closest('.block-box');
   if (!box) return;
-
+  
   const index = Number(box.dataset.index);
   const f = frames[index];
   if (!f) return;
-
+  
   selectedId = f.id;
   syncBlockEditor();
   buildBlockOverlay();
-
+  
   if (grip) {
-    // Start reorder
     reorderState = {
       fromIndex: index,
       startX: ev.clientX,
@@ -695,12 +691,11 @@ els.preview.addEventListener('pointerdown', (ev) => {
       insertionIndex: index,
     };
     ev.preventDefault();
-    els.preview.setPointerCapture?.(ev.pointerId);
+    els.previewContainer.setPointerCapture?.(ev.pointerId);
     return;
   }
-
+  
   if (edge) {
-    // Start resize (masonry only)
     const img = document.getElementById('previewImg');
     if (!img || !lastCollageLayout) return;
     const scale = lastCollageLayout.width / img.getBoundingClientRect().width;
@@ -714,8 +709,6 @@ els.preview.addEventListener('pointerdown', (ev) => {
       startY: ev.clientY,
       startSpan: f.block.colSpan,
       startHeight: f.block.heightScale,
-      startBoxW: parseFloat(box.style.width),
-      startBoxH: parseFloat(box.style.height),
       scale,
       cols: Number($('#collageColumns').value) || 2,
       cellUnit: (lastCollageLayout.width - (Number($('#collageGap').value) || 0) * (Number($('#collageColumns').value) + 1)) / (Number($('#collageColumns').value) || 1),
@@ -725,11 +718,10 @@ els.preview.addEventListener('pointerdown', (ev) => {
       moved: false,
     };
     ev.preventDefault();
-    els.preview.setPointerCapture?.(ev.pointerId);
+    els.previewContainer.setPointerCapture?.(ev.pointerId);
     return;
   }
-
-  // Pan
+  
   const img = document.getElementById('previewImg');
   if (!img || !lastCollageLayout) return;
   const cell = lastCollageLayout.layout[index];
@@ -744,30 +736,28 @@ els.preview.addEventListener('pointerdown', (ev) => {
     startY: ev.clientY,
     startOffX: f.view.offsetX,
     startOffY: f.view.offsetY,
-    startBoxW: parseFloat(box.style.width),
-    startBoxH: parseFloat(box.style.height),
     scale,
     cellW: cell.w / scale,
     cellH: cell.h / scale,
     moved: false,
   };
   ev.preventDefault();
-  els.preview.setPointerCapture?.(ev.pointerId);
+  els.previewContainer.setPointerCapture?.(ev.pointerId);
 });
 
-els.preview.addEventListener('pointermove', (ev) => {
+els.previewContainer.addEventListener('pointermove', (ev) => {
   if (reorderState) {
     const distance = Math.hypot(ev.clientX - reorderState.startX, ev.clientY - reorderState.startY);
     if (distance < 6) return;
     reorderState.moved = true;
-    $$('.block-box', els.preview).forEach((b) => b.classList.remove('insert-before', 'insert-after'));
+    $$('.block-box', els.previewContainer).forEach((b) => b.classList.remove('insert-before', 'insert-after'));
     const target = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.block-box');
     if (!target) return;
     const tidx = Number(target.dataset.index);
     const ins = insertionIndexForPoint(tidx, target.getBoundingClientRect(), ev.clientX, ev.clientY);
     reorderState.insertionIndex = ins;
     target.classList.add(ins === tidx ? 'insert-before' : 'insert-after');
-    const source = $(`.block-box[data-index="${reorderState.fromIndex}"]`, els.preview);
+    const source = $(`.block-box[data-index="${reorderState.fromIndex}"]`, els.previewContainer);
     if (source) source.classList.add('reorder-source');
     return;
   }
@@ -776,7 +766,7 @@ els.preview.addEventListener('pointermove', (ev) => {
   if (!f) return;
   const dxCss = ev.clientX - dragState.startX;
   const dyCss = ev.clientY - dragState.startY;
-
+  
   if (dragState.mode === 'pan') {
     const offsetX = Math.max(-1, Math.min(1, dragState.startOffX + (dxCss / Math.max(1, dragState.cellW)) * 2));
     const offsetY = Math.max(-1, Math.min(1, dragState.startOffY + (dyCss / Math.max(1, dragState.cellH)) * 2));
@@ -807,7 +797,6 @@ els.preview.addEventListener('pointermove', (ev) => {
   }
 });
 
-// rAF-throttled live render during collage drag
 let liveRenderPending = false;
 let liveRenderBusy = false;
 function scheduleLiveRender() {
@@ -879,14 +868,14 @@ async function endPointer(ev, { cancel = false } = {}) {
     reorderState = null;
     if (!cancel && state.moved) await updateFrames(reorderByInsertion(frames, state.fromIndex, state.insertionIndex));
     else buildBlockOverlay();
-    els.preview.releasePointerCapture?.(ev.pointerId);
+    els.previewContainer.releasePointerCapture?.(ev.pointerId);
     return;
   }
   endDrag();
 }
 
-els.preview.addEventListener('pointerup', (ev) => endPointer(ev));
-els.preview.addEventListener('pointercancel', (ev) => endPointer(ev, { cancel: true }));
+els.previewContainer.addEventListener('pointerup', (ev) => endPointer(ev));
+els.previewContainer.addEventListener('pointercancel', (ev) => endPointer(ev, { cancel: true }));
 window.addEventListener('keydown', (ev) => {
   if (ev.key === 'Escape' && reorderState) {
     reorderState = null;
@@ -895,7 +884,7 @@ window.addEventListener('keydown', (ev) => {
 });
 
 // ---------------------------------------------------------------------------
-// Collage block editor (bottom sheet)
+// Collage block editor
 // ---------------------------------------------------------------------------
 function selectedFrame() {
   return frames.find((f) => f.id === selectedId) || null;
@@ -943,7 +932,7 @@ async function patchSelectedBlock(patch, { rerender = true } = {}) {
     els.spanLabel.textContent = `${cur.block.colSpan}`;
     els.heightLabel.textContent = `${Number(cur.block.heightScale).toFixed(2)}×`;
   }
-  if (rerender) schedulePreview();
+  if (rerender) scheduleExport();
 }
 
 async function patchSelectedView(patch, { rerender = true } = {}) {
@@ -953,7 +942,7 @@ async function patchSelectedView(patch, { rerender = true } = {}) {
   await saveFrames(frames);
   const cur = selectedFrame();
   if (cur) els.zoomLabel.textContent = `${Number(cur.view.zoom).toFixed(2)}×`;
-  if (rerender) schedulePreview();
+  if (rerender) scheduleExport();
 }
 
 async function patchSelectedFrame(patch) {
@@ -982,7 +971,7 @@ els.blockReset.addEventListener('click', async () => {
     : x));
   await saveFrames(frames);
   syncBlockEditor();
-  schedulePreview();
+  scheduleExport();
 });
 
 els.frameCaption.addEventListener('change', () => patchSelectedFrame({ captionText: els.frameCaption.value.trim() }));
@@ -1022,6 +1011,8 @@ $('#collageColumns').addEventListener('input', syncBlockEditor);
 // ---------------------------------------------------------------------------
 els.ratio.addEventListener('input', () => {
   els.ratioLabel.textContent = `${Math.round(Number(els.ratio.value) * 100)}%`;
+  // Update strip to reflect new global crop
+  if (exportMode === 'linestack') renderStrip();
 });
 els.ratio.dispatchEvent(new Event('input'));
 
@@ -1029,32 +1020,41 @@ const stackControls = ['#stackWidth', '#stackQuality', '#bottomKeepRatio', '#ena
 const collageControls = ['#collageLayout', '#collageColumns', '#collageAspect', '#collageWidth', '#collageGap', '#collageRadius', '#collageBg'];
 [...stackControls, ...collageControls].forEach((sel) => {
   const el = $(sel);
-  if (el) el.addEventListener('input', schedulePreview);
+  if (el) el.addEventListener('input', scheduleExport);
 });
 
 // ---------------------------------------------------------------------------
 // Downloads
 // ---------------------------------------------------------------------------
-els.downloadExportBtn.addEventListener('click', () => {
+els.downloadExportBtn.addEventListener('click', async () => {
   if (exportMode === 'linestack') {
-    lastStackBlobs.forEach((blob, i) => {
-      const suffix = lastStackBlobs.length > 1 ? `-${String(i + 1).padStart(2, '0')}` : '';
-      downloadBlob(blob, `youtube-linestack${suffix}.jpg`);
-    });
+    // Render LineStack on demand
+    setStatus('Rendering LineStack…');
+    try {
+      const blobs = await renderLineStack(
+        frames.map((f) => ({
+          source: f.url,
+          isKeyframe: f.type === 'keyframe',
+          cropRatio: f.cropRatio,
+          captionText: f.captionText,
+          hasBakedCaption: f.hasBakedCaption,
+          captionScale: f.captionScale,
+        })),
+        stackCfg()
+      );
+      lastStackBlobs = blobs;
+      blobs.forEach((blob, i) => {
+        const suffix = blobs.length > 1 ? `-${String(i + 1).padStart(2, '0')}` : '';
+        downloadBlob(blob, `youtube-linestack${suffix}.jpg`);
+      });
+      setStatus(`Downloaded ${blobs.length} page${blobs.length > 1 ? 's' : ''}`, 'ok');
+    } catch (err) {
+      console.error(err);
+      setStatus(`Export failed: ${err.message || err}`, 'warn');
+    }
   } else {
     downloadBlob(lastCollageBlob, 'youtube-collage.jpg');
   }
-});
-
-els.downloadCurrentBtn.addEventListener('click', () => {
-  const frame = latestCaptureFrame(frames);
-  if (!frame) return;
-  const a = document.createElement('a');
-  a.href = frame.url;
-  a.download = `youtube-frame-${String(frames.length).padStart(2, '0')}.jpg`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
 });
 
 els.clearBtn.addEventListener('click', async () => {
@@ -1063,9 +1063,9 @@ els.clearBtn.addEventListener('click', async () => {
   clearBitmapCache();
   frames = [];
   selectedId = null;
-  renderFrameList();
+  renderStrip();
   syncBlockEditor();
-  schedulePreview();
+  scheduleExport();
   setStatus('Cleared all frames.');
 });
 
@@ -1075,7 +1075,7 @@ els.clearBtn.addEventListener('click', async () => {
 els.zoomInBtn.addEventListener('click', () => stepZoom(1));
 els.zoomOutBtn.addEventListener('click', () => stepZoom(-1));
 els.zoomResetBtn.addEventListener('click', () => setPreviewZoom(1));
-els.preview.addEventListener('wheel', (ev) => {
+els.previewContainer.addEventListener('wheel', (ev) => {
   if (!(ev.ctrlKey || ev.metaKey)) return;
   ev.preventDefault();
   stepZoom(ev.deltaY < 0 ? 1 : -1);
@@ -1086,19 +1086,19 @@ els.preview.addEventListener('wheel', (ev) => {
 // ---------------------------------------------------------------------------
 applyIcons();
 applyPreviewZoom();
-setPreviewEmpty('Capture frames — the preview updates automatically.');
+setExportMode('linestack');
 
 loadFrames().then((loaded) => {
   frames = loaded;
-  renderFrameList();
-  schedulePreview();
+  renderStrip();
+  scheduleExport();
 });
 
 onFramesChanged((next) => {
   if (frameSavesPending) return;
   frames = next;
   if (selectedId && !frames.some((f) => f.id === selectedId)) selectedId = null;
-  renderFrameList();
+  renderStrip();
   syncBlockEditor();
-  schedulePreview();
+  scheduleExport();
 });

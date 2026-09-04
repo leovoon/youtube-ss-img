@@ -8,161 +8,138 @@
 </head>
 <body class="sidepanel">
   <div class="app">
+
     <!-- ========== CAPTURE BAR ========== -->
     <header class="capture-bar">
-      <div class="capture-bar__left">
-        <button id="captureBtn" data-icon="capture" class="capture-btn">Capture</button>
-        <button id="autoBtn" data-icon="play" class="secondary auto-btn">Auto</button>
-        <button id="uploadBtn" data-icon="image-add" class="secondary" title="Add image — or paste / drop">Add</button>
-        <input type="file" id="uploadInput" accept="image/png,image/jpeg,image/webp" hidden>
+      <button id="captureBtn" class="capture-btn" data-icon="capture">Capture</button>
+      <button id="autoBtn" class="secondary auto-btn" data-icon="play">Auto</button>
+      <button id="uploadBtn" class="secondary" data-icon="image-add" title="Add image — or paste / drop">Add</button>
+      <input type="file" id="uploadInput" accept="image/png,image/jpeg,image/webp" hidden>
+      <div class="capture-bar__spacer"></div>
+      <div class="capture-bar__field">
+        <label for="interval">Every</label>
+        <input id="interval" type="number" min="0.5" max="60" step="0.5" value="1" class="interval-input">
+        <span>s</span>
       </div>
-      <div class="capture-bar__right">
-        <div class="capture-bar__field">
-          <label for="interval">Every</label>
-          <input id="interval" type="number" min="0.5" max="60" step="0.5" value="1" class="interval-input">
-          <span>s</span>
-        </div>
-        <div class="capture-bar__field">
-          <label for="captureRule">Rule</label>
-          <select id="captureRule">
-            <option value="caption-aware" selected>Caption-aware</option>
-            <option value="first-keyframe">First keyframe</option>
-            <option value="all-subtitle">All subtitle</option>
-          </select>
-        </div>
+      <div class="capture-bar__field">
+        <select id="captureRule">
+          <option value="caption-aware" selected>Caption-aware</option>
+          <option value="first-keyframe">First keyframe</option>
+          <option value="all-subtitle">All subtitle</option>
+        </select>
       </div>
+      <span id="countLabel" class="frame-count">0 / 200</span>
     </header>
-
     <div id="status" class="status">Ready.</div>
 
-    <!-- ========== PREVIEW ========== -->
-    <section class="preview-section">
-      <div class="preview-head">
-        <div class="mode-switch" role="tablist">
-          <button class="mode-switch__btn active" data-mode="linestack" role="tab">LineStack</button>
-          <button class="mode-switch__btn" data-mode="collage" role="tab">Collage</button>
+    <!-- ========== MODE SWITCH + EXPORT SETTINGS ========== -->
+    <div class="toolbar">
+      <div class="mode-switch" role="tablist">
+        <button class="mode-switch__btn active" data-mode="linestack" role="tab">LineStack</button>
+        <button class="mode-switch__btn" data-mode="collage" role="tab">Collage</button>
+      </div>
+
+      <!-- LineStack settings (inline, compact) -->
+      <div class="settings-inline" data-settings="linestack">
+        <div class="si-field">
+          <label>Width</label>
+          <select id="stackWidth"><option value="720">720</option><option value="1080" selected>1080</option></select>
         </div>
-        <div class="preview-tools">
-          <small id="previewLabel">live</small>
-          <div class="zoombar" role="group" aria-label="Preview zoom">
-            <button class="iconbtn" id="zoomOutBtn" data-icon="zoom-out" title="Zoom out"></button>
-            <button class="iconbtn zoom-value" id="zoomResetBtn" title="Reset / fit">100%</button>
-            <button class="iconbtn" id="zoomInBtn" data-icon="zoom-in" title="Zoom in"></button>
+        <div class="si-field si-field--range">
+          <label>Crop <span id="ratioLabel">20%</span></label>
+          <input id="bottomKeepRatio" type="range" min="0.08" max="0.45" step="0.01" value="0.20">
+        </div>
+        <div class="si-field">
+          <label>Gap</label>
+          <div class="si-group">
+            <select id="enableGap"><option value="false" selected>Off</option><option value="true">On</option></select>
+            <input id="gapSize" type="number" value="8" min="0" max="80" class="num-sm">
           </div>
         </div>
+        <div class="si-field">
+          <label>Quality</label>
+          <input id="stackQuality" type="number" min="0.5" max="1" step="0.05" value="0.9" class="num-sm">
+        </div>
+        <div class="si-field si-field--grow">
+          <label>Watermark</label>
+          <input id="stackWatermark" type="text" placeholder="optional">
+        </div>
       </div>
-      <div class="preview" id="preview">
-        <p class="empty">Capture frames — the preview updates automatically.</p>
+
+      <!-- Collage settings (inline, compact) -->
+      <div class="settings-inline" data-settings="collage" hidden>
+        <div class="si-field">
+          <label>Layout</label>
+          <select id="collageLayout"><option value="grid" selected>Grid</option><option value="masonry">Masonry</option><option value="strip">Strip</option></select>
+        </div>
+        <div class="si-field">
+          <label>Cols</label>
+          <input id="collageColumns" type="number" value="2" min="1" max="6" class="num-sm">
+        </div>
+        <div class="si-field">
+          <label>Aspect</label>
+          <select id="collageAspect"><option value="1.7778" selected>16:9</option><option value="1">1:1</option><option value="1.3333">4:3</option><option value="0.8">4:5</option><option value="0.5625">9:16</option></select>
+        </div>
+        <div class="si-field">
+          <label>Width</label>
+          <select id="collageWidth"><option value="720">720</option><option value="1080" selected>1080</option><option value="1440">1440</option></select>
+        </div>
+        <div class="si-field">
+          <label>Gap</label>
+          <input id="collageGap" type="number" value="10" min="0" max="80" class="num-sm">
+        </div>
+        <div class="si-field">
+          <label>Radius</label>
+          <input id="collageRadius" type="number" value="10" min="0" max="80" class="num-sm">
+        </div>
+        <div class="si-field">
+          <label>BG</label>
+          <input id="collageBg" type="color" value="#111111" class="color-sm">
+        </div>
       </div>
+    </div>
+
+    <!-- ========== OUTPUT (the editing surface) ========== -->
+    <section class="output-section">
+      <div class="output-head">
+        <small id="previewLabel">live</small>
+        <div class="zoombar" role="group" aria-label="Zoom">
+          <button class="iconbtn" id="zoomOutBtn" data-icon="zoom-out" title="Zoom out"></button>
+          <button class="iconbtn zoom-value" id="zoomResetBtn" title="Reset">100%</button>
+          <button class="iconbtn" id="zoomInBtn" data-icon="zoom-in" title="Zoom in"></button>
+        </div>
+      </div>
+
+      <!-- LineStack: DOM-based editable strip -->
+      <div id="outputStrip" class="output-strip"></div>
+
+      <!-- Collage: canvas-rendered preview with block overlay -->
+      <div id="previewContainer" class="preview-container" hidden>
+        <div class="preview-stage" id="previewStage">
+          <img id="previewImg" draggable="false">
+          <div class="block-overlay" id="blockOverlay"></div>
+        </div>
+      </div>
+
+      <!-- Empty state -->
+      <div id="emptyState" class="empty-state"></div>
     </section>
 
-    <!-- ========== EXPORT SETTINGS (inline) ========== -->
-    <section class="export-settings" id="exportSettings">
-      <!-- LineStack settings -->
-      <div class="settings-panel" data-settings="linestack">
-        <div class="settings-row">
-          <div class="settings-field">
-            <label>Width</label>
-            <select id="stackWidth"><option value="720">720</option><option value="1080" selected>1080</option></select>
-          </div>
-          <div class="settings-field settings-field--range">
-            <label>Subtitle crop <span id="ratioLabel">20%</span></label>
-            <input id="bottomKeepRatio" type="range" min="0.08" max="0.45" step="0.01" value="0.20">
-          </div>
-          <div class="settings-field">
-            <label>Gap</label>
-            <div class="settings-group">
-              <select id="enableGap"><option value="false" selected>Off</option><option value="true">On</option></select>
-              <input id="gapSize" type="number" value="8" min="0" max="80" class="num-sm">
-            </div>
-          </div>
-          <div class="settings-field">
-            <label>Quality</label>
-            <input id="stackQuality" type="number" min="0.5" max="1" step="0.05" value="0.9" class="num-sm">
-          </div>
-        </div>
-        <div class="settings-row">
-          <div class="settings-field settings-field--grow">
-            <label>Watermark</label>
-            <input id="stackWatermark" type="text" placeholder="optional">
-          </div>
-        </div>
-      </div>
-
-      <!-- Collage settings -->
-      <div class="settings-panel" data-settings="collage" hidden>
-        <div class="settings-row">
-          <div class="settings-field">
-            <label>Layout</label>
-            <select id="collageLayout">
-              <option value="grid" selected>Grid</option>
-              <option value="masonry">Masonry</option>
-              <option value="strip">Strip</option>
-            </select>
-          </div>
-          <div class="settings-field">
-            <label>Columns</label>
-            <input id="collageColumns" type="number" value="2" min="1" max="6" class="num-sm">
-          </div>
-          <div class="settings-field">
-            <label>Aspect</label>
-            <select id="collageAspect">
-              <option value="1.7778" selected>16:9</option>
-              <option value="1">1:1</option>
-              <option value="1.3333">4:3</option>
-              <option value="0.8">4:5</option>
-              <option value="0.5625">9:16</option>
-            </select>
-          </div>
-          <div class="settings-field">
-            <label>Width</label>
-            <select id="collageWidth"><option value="720">720</option><option value="1080" selected>1080</option><option value="1440">1440</option></select>
-          </div>
-        </div>
-        <div class="settings-row">
-          <div class="settings-field">
-            <label>Gap</label>
-            <input id="collageGap" type="number" value="10" min="0" max="80" class="num-sm">
-          </div>
-          <div class="settings-field">
-            <label>Radius</label>
-            <input id="collageRadius" type="number" value="10" min="0" max="80" class="num-sm">
-          </div>
-          <div class="settings-field">
-            <label>BG</label>
-            <input id="collageBg" type="color" value="#111111" class="color-sm">
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ========== FRAME STACK (the core) ========== -->
-    <section class="stack-section">
-      <div class="stack-head">
-        <h2>Frame stack <small id="countLabel">0 / 200</small></h2>
-        <div class="stack-head__actions">
-          <button id="downloadCurrentBtn" data-icon="download" class="secondary" disabled title="Download current frame">Download frame</button>
-        </div>
-      </div>
-      <div id="frameList" class="frame-list"></div>
-    </section>
-
-    <!-- ========== EXPORT BUTTON ========== -->
+    <!-- ========== EXPORT FOOTER ========== -->
     <footer class="export-footer">
       <button id="downloadExportBtn" data-icon="download" class="export-btn wide" disabled>Download LineStack</button>
       <button id="clearBtn" data-icon="trash" class="ghost danger clear-btn">Clear all</button>
     </footer>
-
     <div class="footer-note">All frames and exports stay local in your browser.</div>
   </div>
 
-  <!-- Collage block editor (slides in when a block is selected) -->
+  <!-- Collage block editor (bottom sheet) -->
   <aside class="block-editor" id="blockEditor" hidden>
     <div class="block-editor__head">
       <strong id="blockTitle">Block</strong>
-      <div style="display:flex;gap:6px;">
+      <div class="block-editor__head-actions">
         <button class="ghost" id="blockReset" data-icon="reset">Reset</button>
-        <button class="ghost" id="blockClose" title="Close">✕</button>
+        <button class="ghost block-close" id="blockClose" title="Close">✕</button>
       </div>
     </div>
     <div class="block-editor__group" id="blockSizeGroup">
@@ -217,9 +194,6 @@
       </div>
     </div>
   </aside>
-
-  <!-- Floating frame zoom peek -->
-  <div id="frameZoom" class="frame-zoom" hidden aria-hidden="true"></div>
 
   <script src="core.js"></script>
   <script type="module" src="sidepanel.js"></script>

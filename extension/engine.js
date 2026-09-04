@@ -139,7 +139,7 @@ async function canvasToBlob(canvas, type, quality) {
 
 /**
  * Render a vertical LineStack.
- * @param {Array<{source: Blob|HTMLImageElement|string, isKeyframe?: boolean}>} images
+ * @param {Array<{source: Blob|HTMLImageElement|string, isKeyframe?: boolean, cropRatio?: number}>} images
  * @param {object} cfg  overrides for LINESTACK_DEFAULTS
  * @param {(cur:number,total:number)=>void} [onProgress]
  * @returns {Promise<Blob[]>} one blob per page
@@ -155,11 +155,13 @@ export async function renderLineStack(images, cfg = {}, onProgress = () => {}) {
     const b = await loadBitmap(images[i].source);
     const { w, h } = bitmapSize(b);
     const isKeyframe = !!images[i].isKeyframe;
+    // Per-frame crop ratio overrides (falls back to global bottomKeepRatio)
+    const ratio = typeof images[i].cropRatio === 'number' ? images[i].cropRatio : c.bottomKeepRatio;
     const scale = c.outputWidth / w;
-    const keptH = isKeyframe ? h : Math.round(h * c.bottomKeepRatio);
+    const keptH = isKeyframe ? h : Math.round(h * ratio);
     const drawH = Math.round(keptH * scale);
     measured.push({
-      bitmap: b, natW: w, natH: h, height: drawH, isKeyframe,
+      bitmap: b, natW: w, natH: h, height: drawH, isKeyframe, ratio,
       captionText: images[i].captionText || '',
       hasBakedCaption: !!images[i].hasBakedCaption,
       captionScale: images[i].captionScale,
@@ -188,8 +190,8 @@ export async function renderLineStack(images, cfg = {}, onProgress = () => {}) {
       if (it.isKeyframe) {
         ctx.drawImage(it.bitmap, 0, 0, it.natW, it.natH, 0, y, c.outputWidth, it.height);
       } else {
-        const sy = it.natH * (1 - c.bottomKeepRatio);
-        const sh = it.natH * c.bottomKeepRatio;
+        const sy = it.natH * (1 - it.ratio);
+        const sh = it.natH * it.ratio;
         ctx.drawImage(it.bitmap, 0, sy, it.natW, sh, 0, y, c.outputWidth, it.height);
       }
       if (!it.hasBakedCaption && it.captionText) {
