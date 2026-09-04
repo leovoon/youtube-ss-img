@@ -215,8 +215,9 @@ $$('.mode-switch__btn').forEach((btn) => {
 // Output strip rendering (LineStack editing surface)
 // ---------------------------------------------------------------------------
 
-// Default crop: reads from current input values (type-bound presets)
+// Default crop: VIS always 0/0, SUB reads from inputs
 function getDefaultCrop(type) {
+  if (type === 'keyframe') return { top: 0, bottom: 0 };
   const top = (Number($('#defaultCropTop')?.value) || 0) / 100;
   const bottom = (Number($('#defaultCropBottom')?.value) || 0) / 100;
   return { top, bottom };
@@ -1164,28 +1165,28 @@ function syncCropInputsToType() {
   if (!topInput || !botInput) return;
 
   if (type === 'keyframe') {
-    // VIS: show saved VIS values (default 0/0)
-    topInput.value = String(savedVisCropTop);
-    botInput.value = String(savedVisCropBot);
+    // VIS: force 0/0 and disable (VIS never crops)
+    topInput.value = '0';
+    botInput.value = '0';
+    topInput.disabled = true;
+    botInput.disabled = true;
   } else {
-    // SUB: show saved SUB values
+    // SUB: show saved SUB values and enable
     topInput.value = String(savedSubCropTop);
     botInput.value = String(savedSubCropBot);
+    topInput.disabled = false;
+    botInput.disabled = false;
   }
 }
 
-// Save crop values whenever they change
+// Save SUB crop values whenever they change (VIS is always 0/0, disabled)
 $('#defaultCropTop')?.addEventListener('input', () => {
   const type = $('#defaultCaptureType')?.value;
-  const val = Number($('#defaultCropTop').value) || 0;
-  if (type === 'keyframe') savedVisCropTop = val;
-  else savedSubCropTop = val;
+  if (type !== 'keyframe') savedSubCropTop = Number($('#defaultCropTop').value) || 0;
 });
 $('#defaultCropBottom')?.addEventListener('input', () => {
   const type = $('#defaultCaptureType')?.value;
-  const val = Number($('#defaultCropBottom').value) || 0;
-  if (type === 'keyframe') savedVisCropBot = val;
-  else savedSubCropBot = val;
+  if (type !== 'keyframe') savedSubCropBot = Number($('#defaultCropBottom').value) || 0;
 });
 
 $('#defaultCaptureType')?.addEventListener('change', syncCropInputsToType);

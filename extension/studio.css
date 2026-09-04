@@ -227,7 +227,7 @@ button .pixi { filter: drop-shadow(1px 1px 0 rgba(0,0,0,.35)); }
   border-right: 1px solid var(--line-soft);
   transition: opacity 120ms ease-out;
 }
-.strip-frame:last-child { border-bottom: 1px solid var(--line-soft); }
+.strip-frame:last-child { border-bottom: 1px solid var(--line-soft); margin-bottom: 8px; }
 .strip-frame:first-child { border-top: 1px solid var(--line-soft); }
 .strip-frame.dragging { opacity: .25; pointer-events: none; }
 .strip-frame.drop-before { box-shadow: inset 0 2px 0 0 var(--accent); }
@@ -396,7 +396,7 @@ button .pixi { filter: drop-shadow(1px 1px 0 rgba(0,0,0,.35)); }
 .clear-btn { font-size: 11px; height: 32px; padding: 0 10px; }
 
 /* Bottom padding so content isn't hidden behind fixed dock */
-.app { padding-bottom: 56px; }
+.app { padding-bottom: 68px; }
 
 /* ─── Block editor (collage) ─────────────────────────────────────────────── */
 .block-editor {
