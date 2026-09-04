@@ -219,6 +219,7 @@ button .pixi { filter: drop-shadow(1px 1px 0 rgba(0,0,0,.35)); }
   border-right: 1px solid var(--line-soft);
   outline: 1px solid transparent;
   outline-offset: -1px;
+  scroll-margin-bottom: 80px;
   transition: opacity 120ms ease-out, outline-color 150ms ease-out;
 }
 .strip-frame:hover { outline-color: var(--accent-20); }
