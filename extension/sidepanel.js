@@ -1164,15 +1164,25 @@ const advancedPanel = $('#advancedSettings');
 if (advancedToggle && advancedPanel) {
   advancedToggle.addEventListener('click', (ev) => {
     ev.stopPropagation();
-    const isOpen = !advancedPanel.hidden;
-    advancedPanel.hidden = isOpen;
-    advancedToggle.classList.toggle('active', !isOpen);
-  });
-  // Close when clicking outside
-  document.addEventListener('click', (ev) => {
-    if (!advancedPanel.hidden && !advancedPanel.contains(ev.target) && ev.target !== advancedToggle) {
-      advancedPanel.hidden = true;
+    const isOpen = advancedPanel.classList.contains('visible');
+    if (isOpen) {
+      advancedPanel.classList.remove('visible');
       advancedToggle.classList.remove('active');
+      // Delay hiding to let exit animation play
+      setTimeout(() => { if (!advancedPanel.classList.contains('visible')) advancedPanel.hidden = true; }, 160);
+    } else {
+      advancedPanel.hidden = false;
+      // Force reflow before adding class for enter animation
+      advancedPanel.offsetHeight;
+      advancedPanel.classList.add('visible');
+      advancedToggle.classList.add('active');
+    }
+  });
+  document.addEventListener('click', (ev) => {
+    if (advancedPanel.classList.contains('visible') && !advancedPanel.contains(ev.target) && ev.target !== advancedToggle) {
+      advancedPanel.classList.remove('visible');
+      advancedToggle.classList.remove('active');
+      setTimeout(() => { if (!advancedPanel.classList.contains('visible')) advancedPanel.hidden = true; }, 160);
     }
   });
 }
