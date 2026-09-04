@@ -104,6 +104,7 @@ const els = {
   ratio: null, // removed — per-frame crop only
   ratioLabel: null,
   downloadExportBtn: $('#downloadExportBtn'),
+  shareBtn: $('#shareBtn'),
   clearBtn: $('#clearBtn'),
   zoomInBtn: $('#zoomInBtn'),
   zoomOutBtn: $('#zoomOutBtn'),
@@ -749,9 +750,14 @@ function stackCfg() {
   };
 }
 
+function setExportAvailable(available) {
+  els.downloadExportBtn.disabled = !available;
+  if (els.shareBtn) els.shareBtn.disabled = !available;
+}
+
 async function runExport() {
   if (!frames.length) {
-    els.downloadExportBtn.disabled = true;
+    setExportAvailable(false);
     return;
   }
   
@@ -759,7 +765,7 @@ async function runExport() {
   try {
     if (exportMode === 'linestack') {
       // For LineStack, the strip IS the preview — no canvas render needed until download
-      els.downloadExportBtn.disabled = false;
+      setExportAvailable(true);
       els.previewLabel.textContent = `${frames.length} frames`;
     } else {
       // For Collage, render to canvas
@@ -787,7 +793,7 @@ async function runExport() {
         img.src = nextUrl;
       }
       buildBlockOverlay();
-      els.downloadExportBtn.disabled = false;
+      setExportAvailable(true);
       els.previewLabel.textContent = 'live';
     }
   } catch (err) {
@@ -1270,6 +1276,67 @@ els.downloadExportBtn.addEventListener('click', async () => {
     downloadBlob(lastCollageBlob, 'youtube-collage.jpg');
   }
 });
+
+// Share button — uses Web Share API to share the rendered image
+if (els.shareBtn) {
+  els.shareBtn.addEventListener('click', async () => {
+    let blob = null;
+    let filename = 'youtube-linestack.jpg';
+
+    if (exportMode === 'linestack') {
+      setStatus('Rendering for share…');
+      try {
+        const blobs = await renderLineStack(
+          frames.map((f) => ({
+            source: f.url,
+            isKeyframe: f.type === 'keyframe',
+            cropTop: f.cropTop,
+            cropBottom: f.cropBottom,
+            captionText: f.captionText,
+            hasBakedCaption: f.hasBakedCaption,
+            captionScale: f.captionScale,
+          })),
+          stackCfg()
+        );
+        lastStackBlobs = blobs;
+        blob = blobs[0];
+      } catch (err) {
+        console.error(err);
+        setStatus(`Share failed: ${err.message || err}`, 'warn');
+        return;
+      }
+    } else {
+      blob = lastCollageBlob;
+      filename = 'youtube-collage.jpg';
+    }
+
+    if (!blob) {
+      setStatus('Nothing to share yet.', 'warn');
+      return;
+    }
+
+    const file = new File([blob], filename, { type: 'image/jpeg' });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: 'YouTube LineStack',
+          text: '',
+        });
+        setStatus('Shared!', 'ok');
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          setStatus(`Share failed: ${err.message || err}`, 'warn');
+        }
+      }
+    } else {
+      // Fallback: download the file and notify user
+      downloadBlob(blob, filename);
+      setStatus('Web Share not available — downloaded instead. Upload to X manually.', 'warn');
+    }
+  });
+}
 
 els.clearBtn.addEventListener('click', async () => {
   if (!confirm('Clear all frames? This cannot be undone.')) return;

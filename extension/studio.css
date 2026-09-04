@@ -389,9 +389,14 @@ button .pixi { filter: drop-shadow(1px 1px 0 rgba(0,0,0,.35)); }
   pointer-events: none;
 }
 .footer-dock > * { pointer-events: auto; }
-.export-footer { display: grid; grid-template-columns: 1fr auto; gap: 6px; padding: 6px 10px 8px; }
+.export-footer { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; padding: 6px 10px 8px; }
 .export-btn { font-size: 12px; height: 32px; padding: 0 16px; }
 .clear-btn { font-size: 11px; height: 32px; padding: 0 10px; }
+.share-btn {
+  height: 32px; padding: 0 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.share-btn:disabled { opacity: .25; cursor: not-allowed; }
 
 /* Bottom padding so content isn't hidden behind fixed dock */
 .app { padding-bottom: 80px; }
