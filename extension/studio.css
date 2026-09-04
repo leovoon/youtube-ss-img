@@ -61,11 +61,12 @@ input[type="color"] {
 /* ─── App layout ─────────────────────────────────────────────────────────── */
 .app { min-height: 100vh; display: flex; flex-direction: column; max-width: 640px; margin: 0 auto; }
 
-/* ─── Capture bar ────────────────────────────────────────────────────────── */
+/* ─── Capture bar (sticky when scrolling) ────────────────────────────────── */
 .capture-bar {
   display: flex; gap: 6px; align-items: center; padding: 8px 10px;
   background: radial-gradient(circle at top left, rgba(255,54,92,.12), transparent 260px), var(--panel);
   border-bottom: 1px solid var(--line); flex-wrap: wrap;
+  position: sticky; top: 0; z-index: 20;
 }
 .capture-bar__spacer { flex: 1; }
 .capture-bar__field { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--muted); }
@@ -228,18 +229,26 @@ input[type="color"] {
 .strip-act--danger:hover { background: rgba(239,68,68,.6); color: #fff; }
 .strip-act--active { background: rgba(124,58,237,.4); color: #ddd6fe; }
 
-/* Crop sliders: hidden by default, shown when .open is toggled */
+/* Crop steppers: hidden by default, shown when .open is toggled */
 .strip-frame__crop {
-  padding: 6px 8px 8px;
+  padding: 4px 8px 6px;
   background: linear-gradient(0deg, rgba(0,0,0,.65) 0%, rgba(0,0,0,.3) 80%, transparent 100%);
   display: none; flex-direction: row; gap: 8px;
 }
 .strip-frame__crop.open { display: flex; }
 .crop-half { flex: 1; min-width: 0; }
-.crop-row { display: flex; align-items: center; gap: 5px; }
+.crop-row { display: flex; align-items: center; gap: 4px; }
 .crop-row__label { font-size: 9px; font-weight: 700; color: rgba(255,255,255,.6); min-width: 22px; white-space: nowrap; }
-.crop-row__slider { flex: 1; accent-color: var(--accent-2); height: 16px; }
-.crop-row__val { font-size: 9px; font-weight: 800; color: rgba(255,255,255,.8); min-width: 26px; text-align: right; }
+.crop-row__val { font-size: 9px; font-weight: 800; color: rgba(255,255,255,.8); min-width: 28px; text-align: center; }
+.crop-btn {
+  padding: 2px 4px; border-radius: 3px; font-size: 10px; font-weight: 800;
+  background: rgba(255,255,255,.15); color: rgba(255,255,255,.8);
+  border: 0; cursor: pointer; min-width: 20px; height: 20px;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background-color 100ms var(--ease-out);
+}
+.crop-btn:hover { background: rgba(255,255,255,.3); color: #fff; }
+.crop-btn:active { transform: scale(0.9); }
 
 /* Caption overlay */
 .strip-frame__caption {

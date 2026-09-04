@@ -151,9 +151,7 @@ export async function appendCapture(response) {
       time: response.time ?? null,
       captionText: response.captionText || '',
       hasBakedCaption: Boolean(response.hasCaption),
-      // Frames with visible captions default to subtitle bands; caption-less
-      // frames default to keyframes (they carry the visual context).
-      type: response.hasCaption ? 'subtitle' : 'keyframe',
+    type: 'keyframe',
       capturedAt: Date.now(),
     },
     frames.length

@@ -226,9 +226,10 @@ function renderStrip() {
   
   els.emptyState.hidden = true;
   
-  // Default crop for frames without per-frame overrides: bottom 20%
-  const defaultCropTop = 0.8;
-  const defaultCropBottom = 0;
+  // Default crop: VIS shows full frame (0,0), SUB shows bottom 20% (0.8, 0)
+  function getDefaultCrop(type) {
+    return type === 'subtitle' ? { top: 0.8, bottom: 0 } : { top: 0, bottom: 0 };
+  }
   
   // Gap settings
   const gapEnabled = $('#enableGap').value === 'true';
@@ -245,8 +246,9 @@ function renderStrip() {
   
   frames.forEach((f, i) => {
     const pos = String(i + 1).padStart(2, '0');
-    const cropTop = typeof f.cropTop === 'number' ? f.cropTop : defaultCropTop;
-    const cropBottom = typeof f.cropBottom === 'number' ? f.cropBottom : defaultCropBottom;
+    const defaults = getDefaultCrop(f.type);
+    const cropTop = typeof f.cropTop === 'number' ? f.cropTop : defaults.top;
+    const cropBottom = typeof f.cropBottom === 'number' ? f.cropBottom : defaults.bottom;
     const keptRatio = Math.max(0.05, 1 - cropTop - cropBottom);
     const topPct = Math.round(cropTop * 100);
     const bottomPct = Math.round(cropBottom * 100);
@@ -289,15 +291,17 @@ function renderStrip() {
           <div class="crop-half">
             <div class="crop-row">
               <span class="crop-row__label">Top</span>
-              <input type="range" class="crop-row__slider" min="0" max="90" step="1" value="${topPct}" data-crop="top">
-              <span class="crop-row__val">${topPct}%</span>
+              <button class="crop-btn" data-crop-step="top" data-step="-5">−</button>
+              <span class="crop-row__val" data-crop-val="top">${topPct}%</span>
+              <button class="crop-btn" data-crop-step="top" data-step="5">+</button>
             </div>
           </div>
           <div class="crop-half">
             <div class="crop-row">
               <span class="crop-row__label">Bot</span>
-              <input type="range" class="crop-row__slider" min="0" max="90" step="1" value="${bottomPct}" data-crop="bottom">
-              <span class="crop-row__val">${bottomPct}%</span>
+              <button class="crop-btn" data-crop-step="bottom" data-step="-5">−</button>
+              <span class="crop-row__val" data-crop-val="bottom">${bottomPct}%</span>
+              <button class="crop-btn" data-crop-step="bottom" data-step="5">+</button>
             </div>
           </div>
         </div>
@@ -400,32 +404,27 @@ els.outputStrip.addEventListener('click', async (ev) => {
   }
 });
 
-// Per-frame crop sliders (top and bottom)
-els.outputStrip.addEventListener('input', async (ev) => {
-  const slider = ev.target.closest('.crop-row__slider');
-  if (!slider) return;
-  const frame = slider.closest('.strip-frame');
+// Per-frame crop stepper buttons
+els.outputStrip.addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('[data-crop-step]');
+  if (!btn) return;
+  const frame = btn.closest('.strip-frame');
   if (!frame) return;
   const idx = Number(frame.dataset.index);
-  const direction = slider.dataset.crop; // 'top' or 'bottom'
-  const pct = Number(slider.value);
-  const ratio = pct / 100;
+  const direction = btn.dataset.cropStep; // 'top' or 'bottom'
+  const step = Number(btn.dataset.step); // -5 or +5
   
-  // Update the value label for this slider
-  const valEl = slider.parentElement.querySelector('.crop-row__val');
-  if (valEl) valEl.textContent = `${pct}%`;
-  
-  // Compute both crop values
   const f = frames[idx];
-  let cropTop = typeof f.cropTop === 'number' ? f.cropTop : 0.8; // default: bottom 20%
-  let cropBottom = typeof f.cropBottom === 'number' ? f.cropBottom : 0;
+  const defaults = getDefaultCrop(f.type);
+  let cropTop = typeof f.cropTop === 'number' ? f.cropTop : defaults.top;
+  let cropBottom = typeof f.cropBottom === 'number' ? f.cropBottom : defaults.bottom;
   
   if (direction === 'top') {
-    cropTop = ratio;
+    cropTop = Math.max(0, Math.min(90, Math.round(cropTop * 100) + step)) / 100;
     // Ensure at least 5% kept region
     if (cropTop + cropBottom > 0.95) cropBottom = Math.max(0, 0.95 - cropTop);
   } else {
-    cropBottom = ratio;
+    cropBottom = Math.max(0, Math.min(90, Math.round(cropBottom * 100) + step)) / 100;
     if (cropTop + cropBottom > 0.95) cropTop = Math.max(0, 0.95 - cropBottom);
   }
   
@@ -433,20 +432,13 @@ els.outputStrip.addEventListener('input', async (ev) => {
   frames = frames.map((x, j) => j === idx ? { ...x, cropTop, cropBottom } : x);
   await saveFrames(frames);
   
-  // Update the other slider if it was clamped
-  if (direction === 'top') {
-    const otherSlider = frame.querySelector('[data-crop="bottom"]');
-    const otherVal = frame.querySelectorAll('.crop-row__val')[1];
-    if (otherSlider) otherSlider.value = Math.round(cropBottom * 100);
-    if (otherVal) otherVal.textContent = `${Math.round(cropBottom * 100)}%`;
-  } else {
-    const otherSlider = frame.querySelector('[data-crop="top"]');
-    const otherVal = frame.querySelectorAll('.crop-row__val')[0];
-    if (otherSlider) otherSlider.value = Math.round(cropTop * 100);
-    if (otherVal) otherVal.textContent = `${Math.round(cropTop * 100)}%`;
-  }
+  // Update display values
+  const topVal = frame.querySelector('[data-crop-val="top"]');
+  const botVal = frame.querySelector('[data-crop-val="bottom"]');
+  if (topVal) topVal.textContent = `${Math.round(cropTop * 100)}%`;
+  if (botVal) botVal.textContent = `${Math.round(cropBottom * 100)}%`;
   
-  // Update the image position live (crop-view approach)
+  // Update the image position live
   const keptRatio = Math.max(0.05, 1 - cropTop - cropBottom);
   const cropView = frame.querySelector('.strip-frame__crop-view');
   if (cropView) {
@@ -513,8 +505,14 @@ els.outputStrip.addEventListener('pointermove', (ev) => {
     f.classList.remove('drop-before', 'drop-after');
   });
   
-  const target = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.strip-frame');
-  if (!target || target === stripDragState.frame) return;
+  // Use elementsFromPoint to find the target frame (skips the dragged frame)
+  const elements = document.elementsFromPoint(ev.clientX, ev.clientY);
+  const target = elements.find((el) => {
+    const frame = el.closest?.('.strip-frame');
+    return frame && frame !== stripDragState.frame;
+  })?.closest('.strip-frame');
+  
+  if (!target) return;
   
   const rect = target.getBoundingClientRect();
   const midY = rect.top + rect.height / 2;
@@ -588,6 +586,12 @@ async function captureAndStore({ auto = false } = {}) {
     renderStrip();
     scheduleExport();
     setStatus(`Captured #${frames.length}`, 'ok');
+    // Auto-scroll to newest frame during auto-capture
+    if (auto && exportMode === 'linestack') {
+      requestAnimationFrame(() => {
+        els.outputStrip.scrollTop = els.outputStrip.scrollHeight;
+      });
+    }
   } catch (err) {
     console.error(err);
     setStatus(err.message || String(err), 'warn');
