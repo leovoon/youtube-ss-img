@@ -323,51 +323,7 @@ function renderStrip() {
 // Strip interactions
 // ---------------------------------------------------------------------------
 
-// Undo state for skip/delete
-let undoState = null;
-let undoTimer = null;
 
-function showUndoToast(frame, index) {
-  // Remove any existing toast
-  clearUndoToast();
-  undoState = { frame, index };
-  
-  const toast = document.createElement('div');
-  toast.className = 'undo-toast';
-  toast.id = 'undoToast';
-  toast.setAttribute('role', 'status');
-  toast.setAttribute('aria-live', 'polite');
-  toast.innerHTML = `<span>Frame skipped</span><button class="undo-toast__btn" id="undoBtn">Undo</button>`;
-  document.body.appendChild(toast);
-  
-  // Force reflow for animation
-  requestAnimationFrame(() => toast.classList.add('visible'));
-  
-  $('#undoBtn').addEventListener('click', undoSkip);
-  undoTimer = setTimeout(clearUndoToast, 3500);
-}
-
-function clearUndoToast() {
-  if (undoTimer) { clearTimeout(undoTimer); undoTimer = null; }
-  const toast = document.getElementById('undoToast');
-  if (toast) {
-    toast.classList.remove('visible');
-    setTimeout(() => toast.remove(), 200);
-  }
-  undoState = null;
-}
-
-async function undoSkip() {
-  if (!undoState) return;
-  const { frame, index } = undoState;
-  clearUndoToast();
-  // Re-insert the frame at its original position (clamped to current length)
-  const insertAt = Math.min(index, frames.length);
-  const next = [...frames];
-  next.splice(insertAt, 0, frame);
-  await updateFrames(next);
-  setStatus('Frame restored', 'ok');
-}
 
 els.outputStrip.addEventListener('keydown', (ev) => {
   if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches('[data-action="toggle-type"]')) {
@@ -394,10 +350,8 @@ els.outputStrip.addEventListener('click', async (ev) => {
     );
     await updateFrames(next);
   } else if (action === 'skip') {
-    const removed = frames[idx];
     const next = frames.filter((_, j) => j !== idx);
     await updateFrames(next);
-    showUndoToast(removed, idx);
   } else if (action === 'move-up') {
     if (idx > 0) await updateFrames(move(frames, idx, idx - 1));
   } else if (action === 'move-down') {
