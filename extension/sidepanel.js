@@ -1308,13 +1308,28 @@ async function getExportBlob() {
   return { blob: lastCollageBlob, filename: 'youtube-collage.jpg' };
 }
 
-// Copy image to clipboard
+// Copy image to clipboard (must be PNG — JPEG not supported by Clipboard API)
 if (els.copyBtn) {
   els.copyBtn.addEventListener('click', async () => {
     try {
       const { blob } = await getExportBlob();
       if (!blob) { setStatus('Nothing to copy yet.', 'warn'); return; }
-      await navigator.clipboard.write([new ClipboardItem({ 'image/jpeg': blob })]);
+      // Convert JPEG blob to PNG via canvas
+      const img = new Image();
+      const url = URL.createObjectURL(blob);
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = url;
+      });
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      const pngBlob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
       setStatus('Copied to clipboard!', 'ok');
     } catch (err) {
       console.error(err);
