@@ -386,18 +386,17 @@ button .pixi { filter: drop-shadow(1px 1px 0 rgba(0,0,0,.35)); }
 .footer-dock {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
   max-width: 640px; margin: 0 auto;
-  background: linear-gradient(to top, var(--bg) 60%, transparent);
-  padding-top: 24px;
+  background: linear-gradient(to top, var(--bg) 70%, transparent);
+  padding-top: 16px;
   pointer-events: none;
 }
 .footer-dock > * { pointer-events: auto; }
-.export-footer { display: grid; grid-template-columns: 1fr auto; gap: 6px; padding: 8px 10px; }
+.export-footer { display: grid; grid-template-columns: 1fr auto; gap: 6px; padding: 6px 10px 8px; }
 .export-btn { font-size: 12px; height: 32px; padding: 0 16px; }
 .clear-btn { font-size: 11px; height: 32px; padding: 0 10px; }
-.footer-note { padding: 4px 10px 8px; color: var(--muted-dim); font-size: 10px; text-align: center; }
 
 /* Bottom padding so content isn't hidden behind fixed dock */
-.app { padding-bottom: 72px; }
+.app { padding-bottom: 56px; }
 
 /* ─── Undo toast ─────────────────────────────────────────────────────────── */
 .undo-toast {

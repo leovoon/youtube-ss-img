@@ -215,9 +215,8 @@ $$('.mode-switch__btn').forEach((btn) => {
 // Output strip rendering (LineStack editing surface)
 // ---------------------------------------------------------------------------
 
-// Default crop: VIS always 0/0, SUB uses global presets from settings bar
+// Default crop: reads from current input values (type-bound presets)
 function getDefaultCrop(type) {
-  if (type === 'keyframe') return { top: 0, bottom: 0 };
   const top = (Number($('#defaultCropTop')?.value) || 0) / 100;
   const bottom = (Number($('#defaultCropBottom')?.value) || 0) / 100;
   return { top, bottom };
@@ -1197,8 +1196,10 @@ $('#collageLayout').addEventListener('change', syncBlockEditor);
 $('#collageColumns').addEventListener('input', syncBlockEditor);
 
 // ---------------------------------------------------------------------------
-// Type-bound crop inputs (Top%/Bot% disabled when Type = VIS)
+// Type-bound crop inputs (Top%/Bot% default values based on type)
 // ---------------------------------------------------------------------------
+let savedVisCropTop = 0;
+let savedVisCropBot = 0;
 let savedSubCropTop = Number($('#defaultCropTop')?.value) || 80;
 let savedSubCropBot = Number($('#defaultCropBottom')?.value) || 0;
 
@@ -1209,21 +1210,29 @@ function syncCropInputsToType() {
   if (!topInput || !botInput) return;
 
   if (type === 'keyframe') {
-    // VIS: show 0/0 and disable
-    savedSubCropTop = Number(topInput.value) || savedSubCropTop;
-    savedSubCropBot = Number(botInput.value) || savedSubCropBot;
-    topInput.value = '0';
-    botInput.value = '0';
-    topInput.disabled = true;
-    botInput.disabled = true;
+    // VIS: show saved VIS values (default 0/0)
+    topInput.value = String(savedVisCropTop);
+    botInput.value = String(savedVisCropBot);
   } else {
-    // SUB: restore saved values and enable
+    // SUB: show saved SUB values
     topInput.value = String(savedSubCropTop);
     botInput.value = String(savedSubCropBot);
-    topInput.disabled = false;
-    botInput.disabled = false;
   }
 }
+
+// Save crop values whenever they change
+$('#defaultCropTop')?.addEventListener('input', () => {
+  const type = $('#defaultCaptureType')?.value;
+  const val = Number($('#defaultCropTop').value) || 0;
+  if (type === 'keyframe') savedVisCropTop = val;
+  else savedSubCropTop = val;
+});
+$('#defaultCropBottom')?.addEventListener('input', () => {
+  const type = $('#defaultCaptureType')?.value;
+  const val = Number($('#defaultCropBottom').value) || 0;
+  if (type === 'keyframe') savedVisCropBot = val;
+  else savedSubCropBot = val;
+});
 
 $('#defaultCaptureType')?.addEventListener('change', syncCropInputsToType);
 // Apply on boot
