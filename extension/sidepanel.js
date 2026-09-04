@@ -304,6 +304,7 @@ function renderStrip() {
           <button class="strip-act" data-action="move-down" title="Move down" ${i === frames.length - 1 ? 'disabled' : ''}>${ICON('arrow-down', 10)}</button>
           <button class="strip-act" data-action="jump-top" title="Jump to top" ${i === 0 ? 'disabled' : ''}>${ICON('jump-top', 10)}</button>
           <button class="strip-act" data-action="jump-bottom" title="Jump to bottom" ${i === frames.length - 1 ? 'disabled' : ''}>${ICON('jump-bottom', 10)}</button>
+          <button class="strip-act" data-action="duplicate" title="Duplicate frame">${ICON('duplicate', 10)}</button>
           <button class="strip-act strip-act--danger" data-action="skip" title="Skip">${ICON('remove', 10)}</button>
         </div>
         ${caption && !f.hasBakedCaption ? `<div class="strip-frame__caption" contenteditable="true" data-caption-id="${f.id}" data-placeholder="Add caption…">${caption}</div>` : ''}
@@ -348,6 +349,11 @@ els.outputStrip.addEventListener('click', async (ev) => {
     const next = frames.map((x, j) =>
       j === idx ? { ...x, type: newType, cropTop: defaults.top, cropBottom: defaults.bottom } : x
     );
+    await updateFrames(next);
+  } else if (action === 'duplicate') {
+    const copy = { ...frames[idx], id: crypto.randomUUID() };
+    const next = [...frames];
+    next.splice(idx + 1, 0, copy);
     await updateFrames(next);
   } else if (action === 'skip') {
     const next = frames.filter((_, j) => j !== idx);
@@ -548,10 +554,13 @@ async function captureAndStore({ auto = false } = {}) {
       autoVideoId ||= response.videoId;
     }
     let next = await appendCapture(response);
-    // Apply default capture type from settings
+    // Apply default preset type and bake in crop values at capture time
     const defaultType = $('#defaultCaptureType')?.value || 'subtitle';
+    const defaultCrop = getDefaultCrop(defaultType);
     if (next.length > 0) {
-      next = next.map((f, i) => i === next.length - 1 ? { ...f, type: defaultType } : f);
+      next = next.map((f, i) => i === next.length - 1
+        ? { ...f, type: defaultType, cropTop: defaultCrop.top, cropBottom: defaultCrop.bottom }
+        : f);
     }
     frames = next;
     await saveFrames(frames);

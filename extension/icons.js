@@ -58,6 +58,8 @@ const PATHS = {
   'arrow-down': 'M7 5h2v8H7zM5 9h2v2H5zM9 9h2v2H9zM3 7h2v2H3zM11 7h2v2h-2z',
   // Crop icon: corner brackets
   'crop': 'M2 4h2V2h2v2h4V2h2v2h2v2h-2v4h2v2h-2v2H8v-2H6v2H4v-2H2v-2h2V6H2zM6 6v4h4V6z',
+  // Duplicate: two overlapping rectangles
+  'duplicate': 'M2 2h7v2H4v5H2zM6 6h8v8H6zm2 2v4h4V8z',
 };
 
 /**
