@@ -7,8 +7,7 @@
 // -- Distilled LineStack model --------------------------------------------
 // Config defaults observed in the shipped bundle:
 //   outputWidth: 720 | 1080          (canvas width; everything scales to it)
-//   enableKeyframeGap: false         (draw a gap band before each keyframe)
-//   gapSize: 8                        (gap band height in px)
+//
 //   backgroundColor: "#FFFFFF"
 //   bottomKeepRatio: 0.2             ("subtitle crop" slider, 0..1)
 //   watermarkText: ""
@@ -30,7 +29,7 @@
 export const LINESTACK_DEFAULTS = {
   outputWidth: 1080,
   enableKeyframeGap: false,
-  gapSize: 8,
+
   backgroundColor: "#FFFFFF",
   bottomKeepRatio: 0.2,
   watermarkText: "",
@@ -82,30 +81,19 @@ function bitmapSize(b) {
   return { w: b.width || b.naturalWidth, h: b.height || b.naturalHeight };
 }
 
-// A "gap before keyframe" boundary: insert a gap band before any keyframe.
-function needsGapBefore(prev, cur) {
-  return !!prev && cur.isKeyframe;
-}
-
 // Split a flat list of measured items into pages under MAX_PAGE_HEIGHT.
-function paginate(items, maxHeight, gapEnabled, gapSize) {
+function paginate(items, maxHeight) {
   const pages = [];
   let cur = [];
   let curH = 0;
-  let prev = null;
   for (const it of items) {
-    const gap = gapEnabled && needsGapBefore(prev, it) ? gapSize : 0;
-    const add = gap + it.height;
-    if (cur.length > 0 && curH + add > maxHeight) {
+    if (cur.length > 0 && curH + it.height > maxHeight) {
       pages.push({ items: cur, height: curH });
       cur = [];
       curH = 0;
-      prev = null;
     }
-    const g = gapEnabled && needsGapBefore(prev, it) ? gapSize : 0;
-    curH += g + it.height;
+    curH += it.height;
     cur.push(it);
-    prev = it;
   }
   if (cur.length > 0) pages.push({ items: cur, height: curH });
   return pages;
@@ -185,9 +173,7 @@ export async function renderLineStack(images, cfg = {}, onProgress = () => {}) {
     });
   }
 
-  const keyframeCount = measured.filter((m) => m.isKeyframe).length;
-  const gapEnabled = c.enableKeyframeGap && keyframeCount >= 2;
-  const pages = paginate(measured, maxPage, gapEnabled, c.gapSize);
+  const pages = paginate(measured, maxPage);
 
   const type = "image/jpeg";
   const blobs = [];
@@ -197,13 +183,7 @@ export async function renderLineStack(images, cfg = {}, onProgress = () => {}) {
     ctx.fillStyle = c.backgroundColor || "#FFFFFF";
     ctx.fillRect(0, 0, c.outputWidth, page.height);
     let y = 0;
-    let prev = null;
     for (const it of page.items) {
-      if (gapEnabled && needsGapBefore(prev, it)) {
-        ctx.fillStyle = c.backgroundColor;
-        ctx.fillRect(0, y, c.outputWidth, c.gapSize);
-        y += c.gapSize;
-      }
       if (it.isKeyframe) {
         ctx.drawImage(it.bitmap, 0, 0, it.natW, it.natH, 0, y, c.outputWidth, it.height);
       } else {
@@ -215,7 +195,6 @@ export async function renderLineStack(images, cfg = {}, onProgress = () => {}) {
         drawCaptionOverlay(ctx, it.captionText, 0, y, c.outputWidth, it.height, it.captionScale);
       }
       y += it.height;
-      prev = it;
     }
     drawWatermark(ctx, c.watermarkText, c.outputWidth, page.height);
     blobs.push(await canvasToBlob(canvas, type, c.jpgQuality));

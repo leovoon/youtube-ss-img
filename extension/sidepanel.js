@@ -239,16 +239,8 @@ function renderStrip() {
   
   els.emptyState.hidden = true;
   
-  // Gap settings
-  const gapEnabled = $('#enableGap').value === 'true';
-  const gapPx = Number($('#gapSize').value) || 0;
-  
   // Watermark
   const watermark = $('#stackWatermark').value.trim();
-  
-  // Count visuals for gap logic
-  const visualCount = frames.filter((f) => f.type === 'keyframe').length;
-  const showGaps = gapEnabled && gapPx > 0 && visualCount >= 2;
   
   let html = '<div class="output-strip-inner" id="stripInner">';
   
@@ -266,12 +258,6 @@ function renderStrip() {
     const aspectH = 9 * keptRatio;
     const aspectRatio = `16 / ${aspectH}`;
     const imgTopPct = -(cropTop / keptRatio) * 100;
-    
-    // Gap before this frame
-    const needsGap = showGaps && i > 0 && f.type === 'keyframe';
-    if (needsGap) {
-      html += `<div class="strip-gap" style="height:${gapPx}px"></div>`;
-    }
     
     const showWatermark = watermark && i === frames.length - 1;
     const hasCrop = typeof f.cropTop === 'number' || typeof f.cropBottom === 'number';
@@ -758,8 +744,6 @@ function stackCfg() {
   return {
     outputWidth: Number($('#stackWidth').value),
     bottomKeepRatio: 0.2, // default fallback; per-frame cropTop/cropBottom overrides
-    enableKeyframeGap: $('#enableGap').value === 'true',
-    gapSize: Number($('#gapSize').value) || 0,
     watermarkText: $('#stackWatermark').value.trim(),
     jpgQuality: 1.0, // always max quality
   };
@@ -1237,14 +1221,14 @@ syncCropInputsToType();
 // ---------------------------------------------------------------------------
 // Export settings -> live preview
 // ---------------------------------------------------------------------------
-const stackControls = ['#stackWidth', '#enableGap', '#gapSize', '#stackWatermark', '#defaultCropTop', '#defaultCropBottom', '#defaultCaptureType'];
+const stackControls = ['#stackWidth', '#stackWatermark', '#defaultCropTop', '#defaultCropBottom', '#defaultCaptureType'];
 const collageControls = ['#collageLayout', '#collageColumns', '#collageAspect', '#collageWidth', '#collageGap', '#collageRadius', '#collageBg'];
 [...stackControls, ...collageControls].forEach((sel) => {
   const el = $(sel);
   if (el) el.addEventListener('input', () => {
     scheduleExport();
     // Settings that need strip re-render
-    if (exportMode === 'linestack' && ['#enableGap', '#gapSize', '#stackWatermark', '#defaultCropTop', '#defaultCropBottom', '#defaultCaptureType'].includes(sel)) {
+    if (exportMode === 'linestack' && ['#stackWatermark', '#defaultCropTop', '#defaultCropBottom', '#defaultCaptureType'].includes(sel)) {
       renderStrip();
       const inner = document.getElementById('stripInner');
       if (inner) inner.style.width = `${previewZoom * 100}%`;
