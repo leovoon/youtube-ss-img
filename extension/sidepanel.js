@@ -479,7 +479,7 @@ els.outputStrip.addEventListener('keydown', (ev) => {
 });
 
 // ---------------------------------------------------------------------------
-// Strip drag-to-reorder
+// Strip drag-to-reorder (uses bounding rects for reliable detection)
 // ---------------------------------------------------------------------------
 els.outputStrip.addEventListener('pointerdown', (ev) => {
   const grip = ev.target.closest('.strip-frame__grip');
@@ -488,12 +488,22 @@ els.outputStrip.addEventListener('pointerdown', (ev) => {
   if (!frame) return;
   ev.preventDefault();
   const idx = Number(frame.dataset.index);
+  
+  // Cache all frame rects for reliable hit testing during drag
+  const frameEls = $$('.strip-frame', els.outputStrip);
+  const rects = frameEls.map((f) => ({
+    el: f,
+    index: Number(f.dataset.index),
+    rect: f.getBoundingClientRect(),
+  }));
+  
   stripDragState = {
     fromIndex: idx,
     startX: ev.clientX,
     startY: ev.clientY,
     moved: false,
     frame,
+    rects,
   };
   frame.classList.add('dragging');
   grip.setPointerCapture(ev.pointerId);
@@ -505,23 +515,30 @@ els.outputStrip.addEventListener('pointermove', (ev) => {
   if (distance < 5) return;
   stripDragState.moved = true;
   
+  // Clear all indicators
   $$('.strip-frame', els.outputStrip).forEach((f) => {
     f.classList.remove('drop-before', 'drop-after');
   });
   
-  // Use elementsFromPoint to find the target frame (skips the dragged frame)
-  const elements = document.elementsFromPoint(ev.clientX, ev.clientY);
-  const target = elements.find((el) => {
-    const frame = el.closest?.('.strip-frame');
-    return frame && frame !== stripDragState.frame;
-  })?.closest('.strip-frame');
+  // Find target frame using cached rects (refresh positions for accuracy)
+  const cursorY = ev.clientY;
+  let targetInfo = null;
   
-  if (!target) return;
+  for (const info of stripDragState.rects) {
+    if (info.index === stripDragState.fromIndex) continue;
+    // Refresh rect (cheap, only visible frames)
+    info.rect = info.el.getBoundingClientRect();
+    if (cursorY >= info.rect.top && cursorY <= info.rect.bottom) {
+      targetInfo = info;
+      break;
+    }
+  }
   
-  const rect = target.getBoundingClientRect();
-  const midY = rect.top + rect.height / 2;
-  const position = ev.clientY < midY ? 'before' : 'after';
-  target.classList.add(`drop-${position}`);
+  if (!targetInfo) return;
+  
+  const midY = targetInfo.rect.top + targetInfo.rect.height / 2;
+  const position = cursorY < midY ? 'before' : 'after';
+  targetInfo.el.classList.add(`drop-${position}`);
 });
 
 els.outputStrip.addEventListener('pointerup', async (ev) => {
@@ -1169,46 +1186,6 @@ els.blockClose.addEventListener('click', () => {
 
 $('#collageLayout').addEventListener('change', syncBlockEditor);
 $('#collageColumns').addEventListener('input', syncBlockEditor);
-
-// ---------------------------------------------------------------------------
-// Advanced settings toggle
-// ---------------------------------------------------------------------------
-const advancedToggle = $('#advancedSettingsToggle');
-const advancedPanel = $('#advancedSettings');
-if (advancedToggle && advancedPanel) {
-  advancedToggle.addEventListener('click', (ev) => {
-    ev.stopPropagation();
-    const isOpen = advancedPanel.classList.contains('visible');
-    if (isOpen) {
-      advancedPanel.classList.remove('visible');
-      advancedToggle.classList.remove('active');
-      // Delay hiding to let exit animation play
-      setTimeout(() => { if (!advancedPanel.classList.contains('visible')) advancedPanel.hidden = true; }, 160);
-    } else {
-      advancedPanel.hidden = false;
-      // Force reflow before adding class for enter animation
-      advancedPanel.offsetHeight;
-      advancedPanel.classList.add('visible');
-      advancedToggle.classList.add('active');
-    }
-  });
-  document.addEventListener('click', (ev) => {
-    if (advancedPanel.classList.contains('visible') && !advancedPanel.contains(ev.target) && ev.target !== advancedToggle) {
-      advancedPanel.classList.remove('visible');
-      advancedToggle.classList.remove('active');
-      setTimeout(() => { if (!advancedPanel.classList.contains('visible')) advancedPanel.hidden = true; }, 160);
-    }
-  });
-  // Escape closes the dropdown
-  document.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Escape' && advancedPanel.classList.contains('visible')) {
-      advancedPanel.classList.remove('visible');
-      advancedToggle.classList.remove('active');
-      setTimeout(() => { if (!advancedPanel.classList.contains('visible')) advancedPanel.hidden = true; }, 160);
-      advancedToggle.focus();
-    }
-  });
-}
 
 // ---------------------------------------------------------------------------
 // Export settings -> live preview
