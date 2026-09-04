@@ -93,39 +93,24 @@ export function applyIcons(root = document) {
   });
 }
 
-/** A small chinchilla illustration (vector, flat palette) used in empty states. */
-export function chinchilla(size = 104) {
-  const h = Math.round(size * (130 / 120));
+/** Minimal geometric empty-state illustration — Swiss/forest design tone.
+ *  Stacked frames motif with the forest accent at various opacities. */
+export function emptyStateArt(size = 80) {
+  const w = size;
+  const h = Math.round(size * 0.75);
   return (
-    `<svg class="chin" width="${size}" height="${h}" viewBox="0 0 120 130" aria-hidden="true" focusable="false">` +
-    // Bushy tail curling up behind the body
-    `<path d="M72 102 Q106 108 97 70 Q92 50 77 53 Q68 56 71 65" fill="none" stroke="#7c8699" stroke-width="16" stroke-linecap="round"/>` +
-    `<path d="M72 102 Q106 108 97 70 Q92 50 77 53 Q68 56 71 65" fill="none" stroke="#aab2c2" stroke-width="8" stroke-linecap="round"/>` +
-    // Body + belly
-    `<ellipse cx="58" cy="97" rx="31" ry="27" fill="#9aa4b6"/>` +
-    `<ellipse cx="58" cy="101" rx="18" ry="16" fill="#eef2f8"/>` +
-    // Feet
-    `<ellipse cx="44" cy="121" rx="7" ry="4" fill="#727c91"/>` +
-    `<ellipse cx="72" cy="121" rx="7" ry="4" fill="#727c91"/>` +
-    // Head + cheek puffs
-    `<circle cx="36" cy="64" r="8" fill="#9aa4b6"/>` +
-    `<circle cx="80" cy="64" r="8" fill="#9aa4b6"/>` +
-    `<circle cx="58" cy="56" r="26" fill="#9aa4b6"/>` +
-    // Ears
-    `<circle cx="40" cy="34" r="9" fill="#9aa4b6"/>` +
-    `<circle cx="76" cy="34" r="9" fill="#9aa4b6"/>` +
-    `<circle cx="40" cy="35" r="4.5" fill="#f3b4c0"/>` +
-    `<circle cx="76" cy="35" r="4.5" fill="#f3b4c0"/>` +
-    // Whiskers
-    `<path d="M34 60 L22 58 M34 64 L22 65 M82 60 L94 58 M82 64 L94 65" stroke="#cbd2de" stroke-width="1.1" stroke-linecap="round"/>` +
-    // Eyes + highlights
-    `<circle cx="49" cy="55" r="3.6" fill="#2a2f3d"/>` +
-    `<circle cx="67" cy="55" r="3.6" fill="#2a2f3d"/>` +
-    `<circle cx="50.3" cy="53.6" r="1.2" fill="#ffffff"/>` +
-    `<circle cx="68.3" cy="53.6" r="1.2" fill="#ffffff"/>` +
-    // Nose + mouth
-    `<path d="M58 62 q-3 0 -3 3 q0 3 3 4 q3 -1 3 -4 q0 -3 -3 -3z" fill="#f3b4c0"/>` +
-    `<path d="M58 69 q-2.2 2 -4.4 1 M58 69 q2.2 2 4.4 1" stroke="#727c91" stroke-width="1.1" fill="none" stroke-linecap="round"/>` +
+    `<svg width="${w}" height="${h}" viewBox="0 0 120 90" aria-hidden="true" focusable="false" style="display:block;margin:0 auto 12px">` +
+    // Back frame (most faded)
+    `<rect x="30" y="4" width="68" height="44" rx="2" fill="none" stroke="#2D6A4F" stroke-width="1.5" opacity="0.20"/>` +
+    // Middle frame
+    `<rect x="22" y="18" width="68" height="44" rx="2" fill="none" stroke="#2D6A4F" stroke-width="1.5" opacity="0.40"/>` +
+    // Front frame (full accent)
+    `<rect x="14" y="32" width="68" height="44" rx="2" fill="rgba(45,106,79,0.08)" stroke="#2D6A4F" stroke-width="1.5" opacity="0.70"/>` +
+    // Mountain scene inside front frame
+    `<path d="M24 66 L42 48 L54 58 L68 42 L72 66Z" fill="#2D6A4F" opacity="0.15"/>` +
+    // Subtle plus icon (add frame cue)
+    `<line x1="98" y1="50" x2="98" y2="62" stroke="#2D6A4F" stroke-width="1.5" opacity="0.35" stroke-linecap="round"/>` +
+    `<line x1="92" y1="56" x2="104" y2="56" stroke="#2D6A4F" stroke-width="1.5" opacity="0.35" stroke-linecap="round"/>` +
     `</svg>`
   );
 }

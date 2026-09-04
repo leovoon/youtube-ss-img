@@ -110,7 +110,24 @@ button .pixi { filter: drop-shadow(1px 1px 0 rgba(0,0,0,.35)); }
 .capture-bar__field select { width: auto; height: 24px; padding: 0 6px; font-size: 11px; }
 .interval-input { width: 40px !important; text-align: center; padding: 0 4px; height: 24px; font-size: 11px; font-variant-numeric: tabular-nums; }
 .capture-btn { height: 28px; padding: 0 14px; font-size: 12px; }
-.auto-btn { font-size: 11px; height: 28px; padding: 0 10px; }
+.auto-btn { font-size: 11px; height: 28px; padding: 0 10px; position: relative; }
+
+/* Auto-capture active: subtle breathing pulse */
+.auto-btn--active {
+  background: var(--accent);
+  color: #fff;
+}
+.auto-btn--active::after {
+  content: ""; position: absolute; inset: -2px;
+  border-radius: 3px;
+  border: 1.5px solid var(--accent);
+  animation: autoPulse 2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes autoPulse {
+  0%, 100% { opacity: 0; transform: scale(1); }
+  50% { opacity: .5; transform: scale(1.04); }
+}
 .frame-count { font-size: 11px; color: var(--muted); font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .bmc-link {
   display: inline-flex; align-items: center; justify-content: center;
@@ -361,11 +378,22 @@ button .pixi { filter: drop-shadow(1px 1px 0 rgba(0,0,0,.35)); }
 .empty-state__inner p:not(:first-child) { text-wrap: pretty; }
 .empty-state__hint { font-size: 11px !important; color: var(--muted-dim); }
 
-/* ─── Export footer ──────────────────────────────────────────────────────── */
-.export-footer { display: grid; grid-template-columns: 1fr auto; gap: 6px; padding: 8px 10px; border-top: 1px solid var(--line); }
+/* ─── Export footer (fixed dock) ─────────────────────────────────────────── */
+.footer-dock {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
+  max-width: 640px; margin: 0 auto;
+  background: linear-gradient(to top, var(--bg) 60%, transparent);
+  padding-top: 24px;
+  pointer-events: none;
+}
+.footer-dock > * { pointer-events: auto; }
+.export-footer { display: grid; grid-template-columns: 1fr auto; gap: 6px; padding: 8px 10px; }
 .export-btn { font-size: 12px; height: 32px; padding: 0 16px; }
 .clear-btn { font-size: 11px; height: 32px; padding: 0 10px; }
 .footer-note { padding: 4px 10px 8px; color: var(--muted-dim); font-size: 10px; text-align: center; }
+
+/* Bottom padding so content isn't hidden behind fixed dock */
+.app { padding-bottom: 72px; }
 
 /* ─── Undo toast ─────────────────────────────────────────────────────────── */
 .undo-toast {
@@ -470,8 +498,9 @@ button .pixi { filter: drop-shadow(1px 1px 0 rgba(0,0,0,.35)); }
   color: var(--text); font-size: 18px; font-weight: 500; pointer-events: none;
 }
 
-@media (min-width: 760px) { .app { max-width: 720px; } }
+@media (min-width: 760px) { .app, .footer-dock { max-width: 720px; } }
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { transition-duration: 1ms !important; animation-duration: 1ms !important; }
+  *, *::before, *::after { transition-duration: 1ms !important; animation-duration: 1ms !important; animation-iteration-count: 1 !important; }
   button:active, .iconbtn:active, .mode-switch__btn:active, .strip-act:active, .crop-btn:active { transform: none; }
+  .auto-btn--active::after { animation: none; opacity: .4; }
 }

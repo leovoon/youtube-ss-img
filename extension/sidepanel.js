@@ -1,5 +1,5 @@
 import { renderLineStack, renderCollage, clearBitmapCache } from './engine.js';
-import { icon as ICON, applyIcons, chinchilla } from './icons.js';
+import { icon as ICON, applyIcons, emptyStateArt } from './icons.js';
 import {
   loadFrames,
   saveFrames as writeFrames,
@@ -230,7 +230,7 @@ function renderStrip() {
     els.outputStrip.innerHTML = '';
     els.emptyState.hidden = false;
     els.emptyState.innerHTML = `<div class="empty-state__inner">
-      ${chinchilla(80)}
+      ${emptyStateArt(80)}
       <p>No frames yet</p>
       <p class="empty-state__hint">Press Capture or Auto to start building your strip.</p>
       <p class="empty-state__hint">Enable YouTube captions for subtitle bands.</p>
@@ -629,7 +629,8 @@ async function captureAndStore({ auto = false } = {}) {
     console.error(err);
     setStatus(err.message || String(err), 'warn');
   } finally {
-    els.captureBtn.disabled = false;
+    // Don't re-enable capture if auto is still running
+    els.captureBtn.disabled = autoRunning;
   }
 }
 
@@ -648,6 +649,8 @@ function stopAuto() {
   autoVideoId = null;
   els.autoBtn.innerHTML = `${ICON('play')}<span class="btxt">Auto</span>`;
   els.autoBtn.classList.add('secondary');
+  els.autoBtn.classList.remove('auto-btn--active');
+  els.captureBtn.disabled = false;
 }
 
 function startAuto() {
@@ -655,6 +658,8 @@ function startAuto() {
   autoVideoId = null;
   els.autoBtn.innerHTML = `${ICON('stop')}<span class="btxt">Stop</span>`;
   els.autoBtn.classList.remove('secondary');
+  els.autoBtn.classList.add('auto-btn--active');
+  els.captureBtn.disabled = true;
   autoTick();
 }
 
