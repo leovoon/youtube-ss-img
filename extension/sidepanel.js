@@ -214,7 +214,7 @@ $$('.mode-switch__btn').forEach((btn) => {
 // Output strip rendering (LineStack editing surface)
 // ---------------------------------------------------------------------------
 
-// Default crop: VIS always 0/0, SUB reads from inputs
+// Default crop: Scene (keyframe) always 0/0, SUB reads from inputs
 function getDefaultCrop(type) {
   if (type === 'keyframe') return { top: 0, bottom: 0 };
   const top = (Number($('#defaultCropTop')?.value) || 0) / 100;
@@ -286,8 +286,8 @@ function renderStrip() {
           <span class="strip-frame__grip" data-grip="${i}">⠿</span>
           <span class="strip-frame__pos">#${pos}</span>
           ${timeStr ? `<span class="strip-frame__pos">${timeStr}</span>` : ''}
-          <span class="strip-frame__type" data-type="${f.type}" data-action="toggle-type" role="button" tabindex="0" aria-label="Toggle frame type (currently ${f.type === 'keyframe' ? 'visual' : 'subtitle'})">${f.type === 'keyframe' ? 'VIS' : 'SUB'}</span>
           <span class="spacer"></span>
+          <span class="strip-frame__type" data-type="${f.type}" data-action="toggle-type" role="button" tabindex="0" aria-label="Toggle frame type (currently ${f.type === 'keyframe' ? 'scene' : 'subtitle'})">${f.type === 'keyframe' ? 'Scene' : 'Sub'}</span>
           <span class="crop-inline">
             <span class="crop-inline__label">T</span>
             <button class="crop-btn" data-crop-step="top" data-step="-5">−</button>
@@ -1149,7 +1149,7 @@ function syncCropInputsToType() {
   if (!topInput || !botInput) return;
 
   if (type === 'keyframe') {
-    // VIS: force 0/0 and disable (VIS never crops)
+    // Scene: force 0/0 and disable (Scene never crops)
     topInput.value = '0';
     botInput.value = '0';
     topInput.disabled = true;
@@ -1163,7 +1163,7 @@ function syncCropInputsToType() {
   }
 }
 
-// Save SUB crop values whenever they change (VIS is always 0/0, disabled)
+// Save SUB crop values whenever they change (Scene is always 0/0, disabled)
 $('#defaultCropTop')?.addEventListener('input', () => {
   const type = $('#defaultCaptureType')?.value;
   if (type !== 'keyframe') savedSubCropTop = Number($('#defaultCropTop').value) || 0;
