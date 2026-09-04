@@ -290,15 +290,15 @@ function renderStrip() {
           <span class="strip-frame__type" data-type="${f.type}" data-action="toggle-type" role="button" tabindex="0" aria-label="Toggle frame type (currently ${f.type === 'keyframe' ? 'scene' : 'subtitle'})">${f.type === 'keyframe' ? 'Scene' : 'Sub'}</span>
           <span class="crop-inline">
             <span class="crop-inline__label">T</span>
-            <button class="crop-btn" data-crop-step="top" data-step="-5">−</button>
+            <button class="crop-btn" data-crop-step="top" data-step="-1">−</button>
             <span class="crop-row__val" data-crop-val="top">${topPct}%</span>
-            <button class="crop-btn" data-crop-step="top" data-step="5">+</button>
+            <button class="crop-btn" data-crop-step="top" data-step="1">+</button>
           </span>
           <span class="crop-inline">
             <span class="crop-inline__label">B</span>
-            <button class="crop-btn" data-crop-step="bottom" data-step="-5">−</button>
+            <button class="crop-btn" data-crop-step="bottom" data-step="-1">−</button>
             <span class="crop-row__val" data-crop-val="bottom">${bottomPct}%</span>
-            <button class="crop-btn" data-crop-step="bottom" data-step="5">+</button>
+            <button class="crop-btn" data-crop-step="bottom" data-step="1">+</button>
           </span>
           <button class="strip-act" data-action="move-up" title="Move up" ${i === 0 ? 'disabled' : ''}>${ICON('arrow-up', 10)}</button>
           <button class="strip-act" data-action="move-down" title="Move down" ${i === frames.length - 1 ? 'disabled' : ''}>${ICON('arrow-down', 10)}</button>
