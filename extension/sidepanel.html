@@ -53,16 +53,26 @@
           </div>
         </div>
         <div class="si-field">
-          <label>Default top %</label>
-          <input id="defaultCropTop" type="number" value="80" min="0" max="90" step="5" class="num-sm">
+          <label>Default type</label>
+          <select id="defaultCaptureType">
+            <option value="keyframe">VIS</option>
+            <option value="subtitle" selected>SUB</option>
+          </select>
         </div>
-        <div class="si-field">
-          <label>Default bot %</label>
-          <input id="defaultCropBottom" type="number" value="0" min="0" max="90" step="5" class="num-sm">
-        </div>
-        <div class="si-field si-field--grow">
-          <label>Watermark</label>
-          <input id="stackWatermark" type="text" placeholder="optional">
+        <button class="settings-toggle-btn" id="advancedSettingsToggle" title="Advanced settings">⚙</button>
+        <div class="settings-advanced" id="advancedSettings" hidden>
+          <div class="si-field">
+            <label>SUB default top %</label>
+            <input id="defaultCropTop" type="number" value="80" min="0" max="90" step="5" class="num-sm">
+          </div>
+          <div class="si-field">
+            <label>SUB default bot %</label>
+            <input id="defaultCropBottom" type="number" value="0" min="0" max="90" step="5" class="num-sm">
+          </div>
+          <div class="si-field si-field--grow">
+            <label>Watermark</label>
+            <input id="stackWatermark" type="text" placeholder="optional">
+          </div>
         </div>
       </div>
 

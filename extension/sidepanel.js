@@ -211,8 +211,9 @@ $$('.mode-switch__btn').forEach((btn) => {
 // Output strip rendering (LineStack editing surface)
 // ---------------------------------------------------------------------------
 
-// Default crop: uses global presets from settings bar
-function getDefaultCrop() {
+// Default crop: VIS always 0/0, SUB uses global presets from settings bar
+function getDefaultCrop(type) {
+  if (type === 'keyframe') return { top: 0, bottom: 0 };
   const top = (Number($('#defaultCropTop')?.value) || 0) / 100;
   const bottom = (Number($('#defaultCropBottom')?.value) || 0) / 100;
   return { top, bottom };
@@ -249,7 +250,7 @@ function renderStrip() {
   
   frames.forEach((f, i) => {
     const pos = String(i + 1).padStart(2, '0');
-    const defaults = getDefaultCrop();
+    const defaults = getDefaultCrop(f.type);
     const cropTop = typeof f.cropTop === 'number' ? f.cropTop : defaults.top;
     const cropBottom = typeof f.cropBottom === 'number' ? f.cropBottom : defaults.bottom;
     const keptRatio = Math.max(0.05, 1 - cropTop - cropBottom);
@@ -404,7 +405,7 @@ els.outputStrip.addEventListener('click', async (ev) => {
   const step = Number(btn.dataset.step); // -5 or +5
   
   const f = frames[idx];
-  const defaults = getDefaultCrop();
+  const defaults = getDefaultCrop(f.type);
   let cropTop = typeof f.cropTop === 'number' ? f.cropTop : defaults.top;
   let cropBottom = typeof f.cropBottom === 'number' ? f.cropBottom : defaults.bottom;
   
@@ -570,9 +571,10 @@ async function captureAndStore({ auto = false } = {}) {
     }
     let next = await appendCapture(response);
     next = applyCaptureRule(next);
-    // Auto-capture defaults to subtitle type
-    if (auto && next.length > 0) {
-      next = next.map((f, i) => i === next.length - 1 ? { ...f, type: 'subtitle' } : f);
+    // Apply default capture type from settings
+    const defaultType = $('#defaultCaptureType')?.value || 'subtitle';
+    if (next.length > 0) {
+      next = next.map((f, i) => i === next.length - 1 ? { ...f, type: defaultType } : f);
     }
     frames = next;
     await saveFrames(frames);
@@ -1155,16 +1157,37 @@ $('#collageLayout').addEventListener('change', syncBlockEditor);
 $('#collageColumns').addEventListener('input', syncBlockEditor);
 
 // ---------------------------------------------------------------------------
+// Advanced settings toggle
+// ---------------------------------------------------------------------------
+const advancedToggle = $('#advancedSettingsToggle');
+const advancedPanel = $('#advancedSettings');
+if (advancedToggle && advancedPanel) {
+  advancedToggle.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    const isOpen = !advancedPanel.hidden;
+    advancedPanel.hidden = isOpen;
+    advancedToggle.classList.toggle('active', !isOpen);
+  });
+  // Close when clicking outside
+  document.addEventListener('click', (ev) => {
+    if (!advancedPanel.hidden && !advancedPanel.contains(ev.target) && ev.target !== advancedToggle) {
+      advancedPanel.hidden = true;
+      advancedToggle.classList.remove('active');
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Export settings -> live preview
 // ---------------------------------------------------------------------------
-const stackControls = ['#stackWidth', '#enableGap', '#gapSize', '#stackWatermark', '#defaultCropTop', '#defaultCropBottom'];
+const stackControls = ['#stackWidth', '#enableGap', '#gapSize', '#stackWatermark', '#defaultCropTop', '#defaultCropBottom', '#defaultCaptureType'];
 const collageControls = ['#collageLayout', '#collageColumns', '#collageAspect', '#collageWidth', '#collageGap', '#collageRadius', '#collageBg'];
 [...stackControls, ...collageControls].forEach((sel) => {
   const el = $(sel);
   if (el) el.addEventListener('input', () => {
     scheduleExport();
-    // Gap, watermark, and default crop changes need strip re-render
-    if (exportMode === 'linestack' && ['#enableGap', '#gapSize', '#stackWatermark', '#defaultCropTop', '#defaultCropBottom'].includes(sel)) {
+    // Settings that need strip re-render
+    if (exportMode === 'linestack' && ['#enableGap', '#gapSize', '#stackWatermark', '#defaultCropTop', '#defaultCropBottom', '#defaultCaptureType'].includes(sel)) {
       renderStrip();
       const inner = document.getElementById('stripInner');
       if (inner) inner.style.width = `${previewZoom * 100}%`;
