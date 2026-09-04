@@ -481,27 +481,61 @@ els.outputStrip.addEventListener('pointermove', (ev) => {
     f.classList.remove('drop-before', 'drop-after');
   });
   
-  // Find target frame using cached rects (refresh positions for accuracy)
+  // Refresh all rects
   const cursorY = ev.clientY;
-  let targetInfo = null;
-  
   for (const info of stripDragState.rects) {
-    if (info.index === stripDragState.fromIndex) continue;
-    // Refresh rect (cheap, only visible frames)
     info.rect = info.el.getBoundingClientRect();
+  }
+  
+  // Get non-dragged frames sorted by vertical position
+  const others = stripDragState.rects
+    .filter((info) => info.index !== stripDragState.fromIndex)
+    .sort((a, b) => a.rect.top - b.rect.top);
+  
+  if (others.length === 0) return;
+  
+  let targetInfo = null;
+  let position = 'before';
+  
+  // Find which frame the cursor is over
+  for (const info of others) {
     if (cursorY >= info.rect.top && cursorY <= info.rect.bottom) {
       targetInfo = info;
+      // 60/40 threshold: top 60% = "before", bottom 40% = "after"
+      const threshold = info.rect.top + info.rect.height * 0.6;
+      position = cursorY < threshold ? 'before' : 'after';
       break;
     }
   }
   
-  if (!targetInfo) return;
+  // If cursor is above all frames, drop before the first one
+  if (!targetInfo && cursorY < others[0].rect.top) {
+    targetInfo = others[0];
+    position = 'before';
+  }
   
-  // Use 60/40 threshold: top 60% = "before", bottom 40% = "after"
-  // This makes it easier to drop above a frame when dragging upward
-  const threshold = targetInfo.rect.top + targetInfo.rect.height * 0.6;
-  const position = cursorY < threshold ? 'before' : 'after';
-  targetInfo.el.classList.add(`drop-${position}`);
+  // If cursor is below all frames, drop after the last one
+  if (!targetInfo && cursorY > others[others.length - 1].rect.bottom) {
+    targetInfo = others[others.length - 1];
+    position = 'after';
+  }
+  
+  // If cursor is between two frames (in a gap), find the nearest
+  if (!targetInfo) {
+    let bestDist = Infinity;
+    for (const info of others) {
+      const distToTop = Math.abs(cursorY - info.rect.top);
+      const distToBot = Math.abs(cursorY - info.rect.bottom);
+      const minDist = Math.min(distToTop, distToBot);
+      if (minDist < bestDist) {
+        bestDist = minDist;
+        targetInfo = info;
+        position = distToTop < distToBot ? 'before' : 'after';
+      }
+    }
+  }
+  
+  if (targetInfo) targetInfo.el.classList.add(`drop-${position}`);
 });
 
 els.outputStrip.addEventListener('pointerup', async (ev) => {
