@@ -214,30 +214,45 @@ input[type="color"] {
 }
 .strip-frame__skip:hover { background: rgba(239,68,68,.6); }
 
-/* Bottom bar: two-direction crop sliders (subtitle frames only) */
+/* Compact action buttons (move, jump, skip) */
+.strip-act {
+  padding: 3px 5px; border-radius: 4px; font-size: 10px; font-weight: 800;
+  background: rgba(255,255,255,.12); color: rgba(255,255,255,.8);
+  border: 0; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 22px; height: 22px;
+  transition: background-color 120ms var(--ease-out), color 120ms var(--ease-out);
+}
+.strip-act:hover { background: rgba(255,255,255,.25); color: #fff; }
+.strip-act:active { transform: scale(0.9); }
+.strip-act .pixi { filter: none; }
+.strip-act--danger { background: rgba(239,68,68,.35); color: #fecaca; font-size: 12px; }
+.strip-act--danger:hover { background: rgba(239,68,68,.6); color: #fff; }
+
+/* Bottom bar: two-direction crop sliders (side by side) */
 .strip-frame__crop {
   margin-top: auto;
-  padding: 6px 10px 8px;
+  padding: 6px 8px 8px;
   background: linear-gradient(0deg, rgba(0,0,0,.75) 0%, rgba(0,0,0,.3) 70%, transparent 100%);
   display: none;
-  gap: 4px;
-  flex-direction: column;
+  flex-direction: row;
+  gap: 8px;
 }
 .strip-frame[data-type="subtitle"] .strip-frame__crop { display: flex; }
-
+.crop-half { flex: 1; min-width: 0; }
 .crop-row {
-  display: flex; align-items: center; gap: 6px;
+  display: flex; align-items: center; gap: 5px;
 }
 .crop-row__label {
-  font-size: 9px; font-weight: 700; color: rgba(255,255,255,.65);
-  min-width: 42px; white-space: nowrap;
+  font-size: 9px; font-weight: 700; color: rgba(255,255,255,.6);
+  min-width: 22px; white-space: nowrap;
 }
 .crop-row__slider {
   flex: 1; accent-color: var(--accent-2); height: 16px;
 }
 .crop-row__val {
   font-size: 9px; font-weight: 800; color: rgba(255,255,255,.8);
-  min-width: 28px; text-align: right;
+  min-width: 26px; text-align: right;
 }
 
 /* Caption overlay */
@@ -255,7 +270,7 @@ input[type="color"] {
 .strip-frame__caption:focus { outline: none; border-color: rgba(255,54,92,.5); background: rgba(0,0,0,.8); }
 .strip-frame__caption:empty::before { content: attr(data-placeholder); color: #64748b; font-style: italic; }
 /* When crop sliders visible, caption sits above them */
-.strip-frame[data-type="subtitle"] .strip-frame__caption { bottom: 56px; }
+.strip-frame[data-type="subtitle"] .strip-frame__caption { bottom: 36px; }
 
 /* ─── Collage preview ────────────────────────────────────────────────────── */
 .preview-container {
@@ -347,6 +362,29 @@ input[type="color"] {
 .block-box:hover .bh-e::after, .block-box.selected .bh-e::after { content:""; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:4px; height:20px; border-radius:4px; background:var(--accent); }
 .block-box:hover .bh-s::after, .block-box.selected .bh-s::after { content:""; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:20px; height:4px; border-radius:4px; background:var(--accent); }
 .block-box:hover .bh-se::after, .block-box.selected .bh-se::after { content:""; position:absolute; right:2px; bottom:2px; width:8px; height:8px; border-radius:2px; background:var(--accent); }
+
+/* ─── Undo toast ─────────────────────────────────────────────────────────── */
+.undo-toast {
+  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 10px; padding: 8px 14px;
+  display: flex; align-items: center; gap: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.5);
+  z-index: 60; font-size: 12px; color: var(--text);
+  opacity: 0;
+  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
+  pointer-events: none;
+}
+.undo-toast.visible {
+  opacity: 1; transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+.undo-toast__btn {
+  padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #fff; border: 0; cursor: pointer;
+}
+.undo-toast__btn:hover { filter: brightness(1.1); }
 
 /* ─── Drop overlay ───────────────────────────────────────────────────────── */
 .app.dragover::after {

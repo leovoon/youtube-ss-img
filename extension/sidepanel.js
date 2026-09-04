@@ -251,21 +251,29 @@ function renderStrip() {
           <span class="strip-frame__grip" data-grip="${i}">⠿</span>
           <span class="strip-frame__pos">#${pos}</span>
           ${timeStr ? `<span class="strip-frame__pos">${timeStr}</span>` : ''}
-          <span class="strip-frame__type" data-type="${f.type}" data-action="toggle-type">${f.type === 'keyframe' ? 'KEY' : 'SUB'}</span>
+          <span class="strip-frame__type" data-type="${f.type}" data-action="toggle-type">${f.type === 'keyframe' ? 'VIS' : 'SUB'}</span>
           <span class="spacer"></span>
-          <button class="strip-frame__skip" data-action="skip">Skip</button>
+          <button class="strip-act" data-action="move-up" title="Move up">${ICON('arrow-up', 10)}</button>
+          <button class="strip-act" data-action="move-down" title="Move down">${ICON('arrow-down', 10)}</button>
+          <button class="strip-act" data-action="jump-top" title="Jump to top">${ICON('jump-top', 10)}</button>
+          <button class="strip-act" data-action="jump-bottom" title="Jump to bottom">${ICON('jump-bottom', 10)}</button>
+          <button class="strip-act strip-act--danger" data-action="skip" title="Skip / delete">✕</button>
         </div>
         ${caption && !f.hasBakedCaption ? `<div class="strip-frame__caption" contenteditable="true" data-caption-id="${f.id}" data-placeholder="Add caption…">${caption}</div>` : ''}
         <div class="strip-frame__crop">
-          <div class="crop-row">
-            <span class="crop-row__label">Top crop</span>
-            <input type="range" class="crop-row__slider" min="0" max="90" step="1" value="${topPct}" data-crop="top">
-            <span class="crop-row__val">${topPct}%</span>
+          <div class="crop-half">
+            <div class="crop-row">
+              <span class="crop-row__label">Top</span>
+              <input type="range" class="crop-row__slider" min="0" max="90" step="1" value="${topPct}" data-crop="top">
+              <span class="crop-row__val">${topPct}%</span>
+            </div>
           </div>
-          <div class="crop-row">
-            <span class="crop-row__label">Bottom</span>
-            <input type="range" class="crop-row__slider" min="0" max="90" step="1" value="${bottomPct}" data-crop="bottom">
-            <span class="crop-row__val">${bottomPct}%</span>
+          <div class="crop-half">
+            <div class="crop-row">
+              <span class="crop-row__label">Bot</span>
+              <input type="range" class="crop-row__slider" min="0" max="90" step="1" value="${bottomPct}" data-crop="bottom">
+              <span class="crop-row__val">${bottomPct}%</span>
+            </div>
           </div>
         </div>
       </div>
@@ -276,6 +284,51 @@ function renderStrip() {
 // ---------------------------------------------------------------------------
 // Strip interactions
 // ---------------------------------------------------------------------------
+
+// Undo state for skip/delete
+let undoState = null;
+let undoTimer = null;
+
+function showUndoToast(frame, index) {
+  // Remove any existing toast
+  clearUndoToast();
+  undoState = { frame, index };
+  
+  const toast = document.createElement('div');
+  toast.className = 'undo-toast';
+  toast.id = 'undoToast';
+  toast.innerHTML = `<span>Frame skipped</span><button class="undo-toast__btn" id="undoBtn">Undo</button>`;
+  document.body.appendChild(toast);
+  
+  // Force reflow for animation
+  requestAnimationFrame(() => toast.classList.add('visible'));
+  
+  $('#undoBtn').addEventListener('click', undoSkip);
+  undoTimer = setTimeout(clearUndoToast, 3500);
+}
+
+function clearUndoToast() {
+  if (undoTimer) { clearTimeout(undoTimer); undoTimer = null; }
+  const toast = document.getElementById('undoToast');
+  if (toast) {
+    toast.classList.remove('visible');
+    setTimeout(() => toast.remove(), 200);
+  }
+  undoState = null;
+}
+
+async function undoSkip() {
+  if (!undoState) return;
+  const { frame, index } = undoState;
+  clearUndoToast();
+  // Re-insert the frame at its original position (clamped to current length)
+  const insertAt = Math.min(index, frames.length);
+  const next = [...frames];
+  next.splice(insertAt, 0, frame);
+  await updateFrames(next);
+  setStatus('Frame restored', 'ok');
+}
+
 els.outputStrip.addEventListener('click', async (ev) => {
   const actionEl = ev.target.closest('[data-action]');
   if (!actionEl) return;
@@ -292,9 +345,18 @@ els.outputStrip.addEventListener('click', async (ev) => {
     );
     await updateFrames(next);
   } else if (action === 'skip') {
+    const removed = frames[idx];
     const next = frames.filter((_, j) => j !== idx);
     await updateFrames(next);
-    setStatus(`Skipped frame`, 'ok');
+    showUndoToast(removed, idx);
+  } else if (action === 'move-up') {
+    if (idx > 0) await updateFrames(move(frames, idx, idx - 1));
+  } else if (action === 'move-down') {
+    if (idx < frames.length - 1) await updateFrames(move(frames, idx, idx + 1));
+  } else if (action === 'jump-top') {
+    if (idx > 0) await updateFrames(move(frames, idx, 0));
+  } else if (action === 'jump-bottom') {
+    if (idx < frames.length - 1) await updateFrames(move(frames, idx, frames.length - 1));
   }
 });
 

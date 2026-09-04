@@ -48,6 +48,14 @@ const PATHS = {
   'zoom-out': 'M6 2a5 5 0 013.9 8.1l3 3-1.4 1.4-3-3A5 5 0 116 2zM3 5v2h6V5z',
   // Fit / reset view: expand-to-fit corners
   fit: 'M2 2h4v2H4v2H2zm8 0h4v4h-2V4h-2zM2 10h2v2h2v2H2zm10 0h2v4h-4v-2h2z',
+  // Jump to top: double chevron up with a bar
+  'jump-top': 'M2 2h12v2H2zM7 5h2v7H7zM5 7h2v2H5zM9 7h2v2H9zM3 9h2v2H3zM11 9h2v2h-2z',
+  // Jump to bottom: double chevron down with a bar
+  'jump-bottom': 'M2 12h12v2H2zM7 4h2v7H7zM5 7h2v2H5zM9 7h2v2H9zM3 5h2v2H3zM11 5h2v2h-2z',
+  // Arrow up (single chevron, compact)
+  'arrow-up': 'M7 3h2v8H7zM5 5h2v2H5zM9 5h2v2H9zM3 7h2v2H3zM11 7h2v2h-2z',
+  // Arrow down (single chevron, compact)
+  'arrow-down': 'M7 5h2v8H7zM5 9h2v2H5zM9 9h2v2H9zM3 7h2v2H3zM11 7h2v2h-2z',
 };
 
 /**
