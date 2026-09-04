@@ -229,22 +229,28 @@ input[type="color"] {
 .strip-act--danger:hover { background: rgba(239,68,68,.6); color: #fff; }
 .strip-act--active { background: rgba(124,58,237,.4); color: #ddd6fe; }
 
-/* Crop steppers: inline in the top bar */
+/* Crop steppers: inline in the top bar, visually distinct */
 .crop-inline {
   display: inline-flex; align-items: center; gap: 2px;
-  padding: 1px 3px; border-radius: 4px;
-  background: rgba(255,255,255,.08);
+  padding: 2px 4px; border-radius: 5px;
+  background: rgba(124,58,237,.25);
+  border: 1px solid rgba(124,58,237,.4);
+}
+.crop-inline__label {
+  font-size: 8px; font-weight: 800; color: #ddd6fe;
+  text-transform: uppercase; letter-spacing: .04em;
+  margin-right: 1px;
 }
 .crop-btn {
   padding: 1px 3px; border-radius: 3px; font-size: 10px; font-weight: 800;
-  background: rgba(255,255,255,.15); color: rgba(255,255,255,.8);
+  background: rgba(124,58,237,.35); color: #ddd6fe;
   border: 0; cursor: pointer; min-width: 18px; height: 18px;
   display: inline-flex; align-items: center; justify-content: center;
   transition: background-color 100ms var(--ease-out);
 }
-.crop-btn:hover { background: rgba(255,255,255,.3); color: #fff; }
+.crop-btn:hover { background: rgba(124,58,237,.55); color: #fff; }
 .crop-btn:active { transform: scale(0.9); }
-.crop-row__val { font-size: 9px; font-weight: 800; color: rgba(255,255,255,.8); min-width: 26px; text-align: center; font-variant-numeric: tabular-nums; }
+.crop-row__val { font-size: 9px; font-weight: 800; color: #ddd6fe; min-width: 26px; text-align: center; font-variant-numeric: tabular-nums; }
 
 /* Caption overlay */
 .strip-frame__caption {

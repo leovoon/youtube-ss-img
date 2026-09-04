@@ -211,9 +211,11 @@ $$('.mode-switch__btn').forEach((btn) => {
 // Output strip rendering (LineStack editing surface)
 // ---------------------------------------------------------------------------
 
-// Default crop: VIS shows full frame (0,0), SUB shows bottom 20% (0.8, 0)
-function getDefaultCrop(type) {
-  return type === 'subtitle' ? { top: 0.8, bottom: 0 } : { top: 0, bottom: 0 };
+// Default crop: uses global presets from settings bar
+function getDefaultCrop() {
+  const top = (Number($('#defaultCropTop')?.value) || 0) / 100;
+  const bottom = (Number($('#defaultCropBottom')?.value) || 0) / 100;
+  return { top, bottom };
 }
 
 function renderStrip() {
@@ -247,7 +249,7 @@ function renderStrip() {
   
   frames.forEach((f, i) => {
     const pos = String(i + 1).padStart(2, '0');
-    const defaults = getDefaultCrop(f.type);
+    const defaults = getDefaultCrop();
     const cropTop = typeof f.cropTop === 'number' ? f.cropTop : defaults.top;
     const cropBottom = typeof f.cropBottom === 'number' ? f.cropBottom : defaults.bottom;
     const keptRatio = Math.max(0.05, 1 - cropTop - cropBottom);
@@ -282,11 +284,13 @@ function renderStrip() {
           <span class="strip-frame__type" data-type="${f.type}" data-action="toggle-type">${f.type === 'keyframe' ? 'VIS' : 'SUB'}</span>
           <span class="spacer"></span>
           <span class="crop-inline">
+            <span class="crop-inline__label">T</span>
             <button class="crop-btn" data-crop-step="top" data-step="-5">−</button>
             <span class="crop-row__val" data-crop-val="top">${topPct}%</span>
             <button class="crop-btn" data-crop-step="top" data-step="5">+</button>
           </span>
           <span class="crop-inline">
+            <span class="crop-inline__label">B</span>
             <button class="crop-btn" data-crop-step="bottom" data-step="-5">−</button>
             <span class="crop-row__val" data-crop-val="bottom">${bottomPct}%</span>
             <button class="crop-btn" data-crop-step="bottom" data-step="5">+</button>
@@ -400,7 +404,7 @@ els.outputStrip.addEventListener('click', async (ev) => {
   const step = Number(btn.dataset.step); // -5 or +5
   
   const f = frames[idx];
-  const defaults = getDefaultCrop(f.type);
+  const defaults = getDefaultCrop();
   let cropTop = typeof f.cropTop === 'number' ? f.cropTop : defaults.top;
   let cropBottom = typeof f.cropBottom === 'number' ? f.cropBottom : defaults.bottom;
   
@@ -1153,14 +1157,14 @@ $('#collageColumns').addEventListener('input', syncBlockEditor);
 // ---------------------------------------------------------------------------
 // Export settings -> live preview
 // ---------------------------------------------------------------------------
-const stackControls = ['#stackWidth', '#enableGap', '#gapSize', '#stackWatermark'];
+const stackControls = ['#stackWidth', '#enableGap', '#gapSize', '#stackWatermark', '#defaultCropTop', '#defaultCropBottom'];
 const collageControls = ['#collageLayout', '#collageColumns', '#collageAspect', '#collageWidth', '#collageGap', '#collageRadius', '#collageBg'];
 [...stackControls, ...collageControls].forEach((sel) => {
   const el = $(sel);
   if (el) el.addEventListener('input', () => {
     scheduleExport();
-    // Gap and watermark changes need strip re-render
-    if (exportMode === 'linestack' && ['#enableGap', '#gapSize', '#stackWatermark'].includes(sel)) {
+    // Gap, watermark, and default crop changes need strip re-render
+    if (exportMode === 'linestack' && ['#enableGap', '#gapSize', '#stackWatermark', '#defaultCropTop', '#defaultCropBottom'].includes(sel)) {
       renderStrip();
       const inner = document.getElementById('stripInner');
       if (inner) inner.style.width = `${previewZoom * 100}%`;
