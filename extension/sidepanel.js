@@ -285,7 +285,7 @@ function renderStrip() {
         <div class="strip-frame__top">
           <span class="strip-frame__grip" data-grip="${i}">⠿</span>
           <span class="strip-frame__pos">#${pos}</span>
-          ${timeStr ? `<span class="strip-frame__pos">${timeStr}</span>` : ''}
+          ${timeStr && f.videoId ? `<a class="strip-frame__pos strip-frame__time-link" href="https://www.youtube.com/watch?v=${f.videoId}&t=${Math.floor(f.time)}" target="_blank" rel="noopener" title="Jump to ${timeStr}">${timeStr}</a>` : (timeStr ? `<span class="strip-frame__pos">${timeStr}</span>` : '')}
           <span class="spacer"></span>
           <span class="strip-frame__type" data-type="${f.type}" data-action="toggle-type" role="button" tabindex="0" aria-label="Toggle frame type (currently ${f.type === 'keyframe' ? 'scene' : 'subtitle'})">${f.type === 'keyframe' ? 'Scene' : 'Sub'}</span>
           <span class="crop-inline">

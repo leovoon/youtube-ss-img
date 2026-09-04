@@ -48,6 +48,7 @@ function normalizeFrame(f, index) {
     height: f.height || 0,
     type: f.type === 'keyframe' || f.type === 'subtitle' ? f.type : (index === 0 ? 'keyframe' : 'subtitle'),
     time: typeof f.time === 'number' ? f.time : null,
+    videoId: f.videoId || null,
     captionText: f.captionText || '',
     // True when a caption is baked into the image pixels (captured frames that
     // had a visible YouTube caption). False for uploads and caption-less
@@ -149,6 +150,7 @@ export async function appendCapture(response) {
       width: response.width,
       height: response.height,
       time: response.time ?? null,
+      videoId: response.videoId || null,
       captionText: response.captionText || '',
       hasBakedCaption: Boolean(response.hasCaption),
     type: 'keyframe',
