@@ -210,6 +210,12 @@ $$('.mode-switch__btn').forEach((btn) => {
 // ---------------------------------------------------------------------------
 // Output strip rendering (LineStack editing surface)
 // ---------------------------------------------------------------------------
+
+// Default crop: VIS shows full frame (0,0), SUB shows bottom 20% (0.8, 0)
+function getDefaultCrop(type) {
+  return type === 'subtitle' ? { top: 0.8, bottom: 0 } : { top: 0, bottom: 0 };
+}
+
 function renderStrip() {
   els.countLabel.textContent = `${frames.length} / ${MAX_FRAMES}`;
   
@@ -225,11 +231,6 @@ function renderStrip() {
   }
   
   els.emptyState.hidden = true;
-  
-  // Default crop: VIS shows full frame (0,0), SUB shows bottom 20% (0.8, 0)
-  function getDefaultCrop(type) {
-    return type === 'subtitle' ? { top: 0.8, bottom: 0 } : { top: 0, bottom: 0 };
-  }
   
   // Gap settings
   const gapEnabled = $('#enableGap').value === 'true';
@@ -577,7 +578,10 @@ async function captureAndStore({ auto = false } = {}) {
     // Auto-scroll window to bottom during auto-capture
     if (auto && exportMode === 'linestack') {
       requestAnimationFrame(() => {
-        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        const lastFrame = els.outputStrip.querySelector('.strip-frame:last-child');
+        if (lastFrame) {
+          lastFrame.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
       });
     }
   } catch (err) {
