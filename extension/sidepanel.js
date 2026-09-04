@@ -184,7 +184,11 @@ function stepZoom(dir) {
 // ---------------------------------------------------------------------------
 function setExportMode(mode) {
   exportMode = mode;
-  $$('.mode-switch__btn').forEach((b) => b.classList.toggle('active', b.dataset.mode === mode));
+  $$('.mode-switch__btn').forEach((b) => {
+    const isActive = b.dataset.mode === mode;
+    b.classList.toggle('active', isActive);
+    b.setAttribute('aria-selected', String(isActive));
+  });
   $$('[data-settings]').forEach((p) => { p.hidden = p.dataset.settings !== mode; });
   
   // Show/hide appropriate preview containers
@@ -227,8 +231,9 @@ function renderStrip() {
     els.emptyState.hidden = false;
     els.emptyState.innerHTML = `<div class="empty-state__inner">
       ${chinchilla(80)}
-      <p>Capture frames to build your LineStack</p>
-      <p class="empty-state__hint">💡 Turn on captions in YouTube for subtitle bands</p>
+      <p>No frames yet</p>
+      <p class="empty-state__hint">Press Capture or Auto to start building your strip.</p>
+      <p class="empty-state__hint">Enable YouTube captions for subtitle bands.</p>
     </div>`;
     return;
   }
@@ -282,7 +287,7 @@ function renderStrip() {
           <span class="strip-frame__grip" data-grip="${i}">⠿</span>
           <span class="strip-frame__pos">#${pos}</span>
           ${timeStr ? `<span class="strip-frame__pos">${timeStr}</span>` : ''}
-          <span class="strip-frame__type" data-type="${f.type}" data-action="toggle-type">${f.type === 'keyframe' ? 'VIS' : 'SUB'}</span>
+          <span class="strip-frame__type" data-type="${f.type}" data-action="toggle-type" role="button" tabindex="0" aria-label="Toggle frame type (currently ${f.type === 'keyframe' ? 'visual' : 'subtitle'})">${f.type === 'keyframe' ? 'VIS' : 'SUB'}</span>
           <span class="spacer"></span>
           <span class="crop-inline">
             <span class="crop-inline__label">T</span>
@@ -331,6 +336,8 @@ function showUndoToast(frame, index) {
   const toast = document.createElement('div');
   toast.className = 'undo-toast';
   toast.id = 'undoToast';
+  toast.setAttribute('role', 'status');
+  toast.setAttribute('aria-live', 'polite');
   toast.innerHTML = `<span>Frame skipped</span><button class="undo-toast__btn" id="undoBtn">Undo</button>`;
   document.body.appendChild(toast);
   
@@ -362,6 +369,13 @@ async function undoSkip() {
   await updateFrames(next);
   setStatus('Frame restored', 'ok');
 }
+
+els.outputStrip.addEventListener('keydown', (ev) => {
+  if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches('[data-action="toggle-type"]')) {
+    ev.preventDefault();
+    ev.target.click();
+  }
+});
 
 els.outputStrip.addEventListener('click', async (ev) => {
   const actionEl = ev.target.closest('[data-action]');
@@ -1183,6 +1197,15 @@ if (advancedToggle && advancedPanel) {
       advancedPanel.classList.remove('visible');
       advancedToggle.classList.remove('active');
       setTimeout(() => { if (!advancedPanel.classList.contains('visible')) advancedPanel.hidden = true; }, 160);
+    }
+  });
+  // Escape closes the dropdown
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape' && advancedPanel.classList.contains('visible')) {
+      advancedPanel.classList.remove('visible');
+      advancedToggle.classList.remove('active');
+      setTimeout(() => { if (!advancedPanel.classList.contains('visible')) advancedPanel.hidden = true; }, 160);
+      advancedToggle.focus();
     }
   });
 }

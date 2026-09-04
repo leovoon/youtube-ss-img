@@ -18,8 +18,8 @@
       <div class="capture-bar__spacer"></div>
       <div class="capture-bar__field">
         <label for="interval">Every</label>
-        <input id="interval" type="number" min="0.5" max="60" step="0.5" value="1" class="interval-input">
-        <span>s</span>
+        <input id="interval" type="number" min="0.5" max="60" step="0.5" value="1" class="interval-input" aria-label="Capture interval in seconds">
+        <span aria-hidden="true">s</span>
       </div>
       <div class="capture-bar__field">
         <select id="captureRule">
@@ -34,9 +34,9 @@
 
     <!-- ========== MODE SWITCH + EXPORT SETTINGS ========== -->
     <div class="toolbar">
-      <div class="mode-switch" role="tablist">
-        <button class="mode-switch__btn active" data-mode="linestack" role="tab">LineStack</button>
-        <button class="mode-switch__btn" data-mode="collage" role="tab">Collage</button>
+      <div class="mode-switch" role="tablist" aria-label="Export mode">
+        <button class="mode-switch__btn active" data-mode="linestack" role="tab" aria-selected="true">LineStack</button>
+        <button class="mode-switch__btn" data-mode="collage" role="tab" aria-selected="false">Collage</button>
       </div>
 
       <!-- LineStack settings (inline, compact) -->
@@ -71,7 +71,7 @@
           </div>
           <div class="si-field si-field--grow">
             <label>Watermark</label>
-            <input id="stackWatermark" type="text" placeholder="optional">
+            <input id="stackWatermark" type="text" placeholder="e.g. @channelname">
           </div>
         </div>
       </div>
