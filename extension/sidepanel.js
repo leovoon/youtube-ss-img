@@ -1,5 +1,5 @@
 import { renderLineStack, renderCollage, clearBitmapCache } from './engine.js';
-import { icon as ICON, applyIcons, chinchilla } from './icons.js';
+import { icon as ICON, applyIcons, emptyStateArt } from './icons.js';
 import {
   loadFrames,
   saveFrames as writeFrames,
@@ -11,96 +11,31 @@ import {
   MAX_FRAMES,
 } from './store.js';
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
-const { insertionIndexForPoint, reorderByInsertion, latestCaptureFrame } = globalThis.YTFrameCore;
+const { insertionIndexForPoint, reorderByInsertion } = globalThis.YTFrameCore;
 
-let frames = [];
-let autoTimer = null;
-let autoRunning = false;
-let autoVideoId = null;
-let activeTab = 'capture';
-let selectedId = null;
-let captionSizeOpenId = null; // frame whose inline caption-size slider is open
-
-let lastStackBlobs = [];
-let lastCollageBlob = null;
-let lastCollageLayout = null; // { layout, width, height }
-let previewUrl = null;
-let previewToken = 0;
-let dragState = null; // active block manipulation
-let reorderState = null;
-let dragCueText = '';
-let frameSaveQueue = Promise.resolve();
-let frameSavesPending = 0;
-
-function saveFrames(next) {
-  frameSavesPending += 1;
-  const save = frameSaveQueue.then(() => writeFrames(next));
-  frameSaveQueue = save.catch(() => {});
-  return save.finally(() => { frameSavesPending -= 1; });
+function move(arr, from, to) {
+  if (to < 0 || to >= arr.length) return arr;
+  const next = [...arr];
+  const [it] = next.splice(from, 1);
+  next.splice(to, 0, it);
+  return next;
 }
 
-const els = {
-  status: $('#status'),
-  countLabel: $('#countLabel'),
-  frameList: $('#frameList'),
-  preview: $('#preview'),
-  previewLabel: $('#previewLabel'),
-  captureBtn: $('#captureBtn'),
-  autoBtn: $('#autoBtn'),
-  interval: $('#interval'),
-  captureRule: $('#captureRule'),
-  ratio: $('#bottomKeepRatio'),
-  ratioLabel: $('#ratioLabel'),
-  downloadStackBtn: $('#downloadStackBtn'),
-  downloadCollageBtn: $('#downloadCollageBtn'),
-  downloadCaptureBtn: $('#downloadCaptureBtn'),
-  blockEditor: $('#blockEditor'),
-  blockTitle: $('#blockTitle'),
-  blockZoom: $('#blockZoom'),
-  zoomLabel: $('#zoomLabel'),
-  blockOffsetX: $('#blockOffsetX'),
-  blockOffsetY: $('#blockOffsetY'),
-  blockReset: $('#blockReset'),
-  blockSizeGroup: $('#blockSizeGroup'),
-  blockSpan: $('#blockSpan'),
-  spanLabel: $('#spanLabel'),
-  blockHeight: $('#blockHeight'),
-  heightLabel: $('#heightLabel'),
-  sizeHint: $('#sizeHint'),
-  zoomInBtn: $('#zoomInBtn'),
-  zoomOutBtn: $('#zoomOutBtn'),
-  zoomResetBtn: $('#zoomResetBtn'),
-  uploadBtn: $('#uploadBtn'),
-  uploadInput: $('#uploadInput'),
-  frameZoom: $('#frameZoom'),
-  frameQueueCard: $('#frameQueueCard'),
-  frameCaption: $('#frameCaption'),
-  frameCaptionHint: $('#frameCaptionHint'),
-  frameType: $('#frameType'),
-  frameCaptionScale: $('#frameCaptionScale'),
-  frameCaptionScaleLabel: $('#frameCaptionScaleLabel'),
-  frameEarlier: $('#frameEarlier'),
-  frameLater: $('#frameLater'),
-  frameDelete: $('#frameDelete'),
-};
-
-function setStatus(message, cls = '') {
-  els.status.className = `status ${cls}`;
-  els.status.textContent = message;
+function escapeHtml(s) {
+  return String(s).replace(/[&<>\"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
 function formatTime(seconds) {
-  if (typeof seconds !== 'number') return '—';
+  if (typeof seconds !== 'number') return '';
   const s = Math.floor(seconds % 60).toString().padStart(2, '0');
   const m = Math.floor(seconds / 60) % 60;
   const h = Math.floor(seconds / 3600);
   return h ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
-}
-
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
 function downloadBlob(blob, filename) {
@@ -115,63 +50,104 @@ function downloadBlob(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1200);
 }
 
-function setPreviewImage(blob, label) {
-  els.preview.dataset.collage = activeTab === 'collage' ? '1' : '0';
-  const nextUrl = URL.createObjectURL(blob);
-  let img = document.getElementById('previewImg');
-  // Reuse the existing <img> so the old frame stays visible until the new one
-  // decodes — avoids the blank-flash / layout collapse on every re-render.
-  if (!img) {
-    els.preview.innerHTML =
-      `<div class="preview-stage" id="previewStage">` +
-        `<img id="previewImg" alt="${label} preview" draggable="false">` +
-        `<div class="block-overlay" id="blockOverlay"></div>` +
-      `</div>`;
-    img = document.getElementById('previewImg');
-  }
-  const oldUrl = previewUrl;
-  previewUrl = nextUrl;
-  img.onload = () => { if (oldUrl && oldUrl !== nextUrl) URL.revokeObjectURL(oldUrl); };
-  img.src = nextUrl;
-  els.previewLabel.textContent = label;
-  // Stale collage block-boxes must not linger over a LineStack image. Clear
-  // the overlay on every non-collage render; the collage path rebuilds it.
-  const overlay = document.getElementById('blockOverlay');
-  if (overlay && activeTab !== 'collage') overlay.innerHTML = '';
-  applyPreviewZoom();
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+let frames = [];
+let autoTimer = null;
+let autoRunning = false;
+let autoVideoId = null;
+let exportMode = 'linestack';
+let selectedId = null;
+
+let lastStackBlobs = [];
+let lastCollageBlob = null;
+let lastCollageLayout = null;
+let previewUrl = null;
+let previewToken = 0;
+let dragState = null;
+let reorderState = null;
+let dragCueText = '';
+let frameSaveQueue = Promise.resolve();
+let frameSavesPending = 0;
+
+// Strip drag state
+let stripDragState = null;
+
+function saveFrames(next) {
+  frameSavesPending += 1;
+  const save = frameSaveQueue.then(() => writeFrames(next));
+  frameSaveQueue = save.catch(() => {});
+  return save.finally(() => { frameSavesPending -= 1; });
 }
 
-function setPreviewSource(source, label) {
-  els.preview.dataset.collage = '0';
-  let img = document.getElementById('previewImg');
-  if (!img) {
-    els.preview.innerHTML = `<div class="preview-stage" id="previewStage"><img id="previewImg" draggable="false"><div class="block-overlay" id="blockOverlay"></div></div>`;
-    img = document.getElementById('previewImg');
-  }
-  if (previewUrl) { URL.revokeObjectURL(previewUrl); previewUrl = null; }
-  img.src = source;
-  img.alt = `${label} preview`;
-  els.previewLabel.textContent = label;
-  const overlay = document.getElementById('blockOverlay');
-  if (overlay) overlay.innerHTML = '';
-  applyPreviewZoom();
-}
-
-function setPreviewEmpty(message) {
-  els.preview.dataset.collage = '0';
-  if (previewUrl) { URL.revokeObjectURL(previewUrl); previewUrl = null; }
-  els.preview.innerHTML = emptyStateHTML(message);
-}
-
-// Chinchilla speaking the empty-state dialog. Used by every preview empty state
-// so the illustration stays consistent across tabs.
-function emptyStateHTML(message) {
-  return `<div class="empty-illu">${chinchilla(104)}<div class="bubble"><span>${escapeHtml(message)}</span></div></div>`;
+async function updateFrames(next) {
+  frames = next;
+  await saveFrames(frames);
+  renderStrip();
+  scheduleExport();
 }
 
 // ---------------------------------------------------------------------------
-// Preview zoom (CSS `zoom` grows the layout box so overflow:auto scrolls and
-// getBoundingClientRect reflects the scale — keeps collage drag math correct).
+// DOM refs
+// ---------------------------------------------------------------------------
+const els = {
+  status: $('#status'),
+  countLabel: $('#countLabel'),
+  outputStrip: $('#outputStrip'),
+  previewContainer: $('#previewContainer'),
+  previewLabel: $('#previewLabel'),
+  emptyState: $('#emptyState'),
+  captureBtn: $('#captureBtn'),
+  autoBtn: $('#autoBtn'),
+  interval: $('#interval'),
+  ratio: null, // removed — per-frame crop only
+  ratioLabel: null,
+  downloadExportBtn: $('#downloadExportBtn'),
+  copyBtn: $('#copyBtn'),
+  shareXBtn: $('#shareXBtn'),
+  shareFbBtn: $('#shareFbBtn'),
+  shareBtn: $('#shareBtn'),
+  clearBtn: $('#clearBtn'),
+  zoomInBtn: $('#zoomInBtn'),
+  zoomOutBtn: $('#zoomOutBtn'),
+  zoomResetBtn: $('#zoomResetBtn'),
+  uploadBtn: $('#uploadBtn'),
+  uploadInput: $('#uploadInput'),
+  // Collage block editor
+  blockEditor: $('#blockEditor'),
+  blockTitle: $('#blockTitle'),
+  blockClose: $('#blockClose'),
+  blockZoom: $('#blockZoom'),
+  zoomLabel: $('#zoomLabel'),
+  blockOffsetX: $('#blockOffsetX'),
+  blockOffsetY: $('#blockOffsetY'),
+  blockReset: $('#blockReset'),
+  blockSizeGroup: $('#blockSizeGroup'),
+  blockSpan: $('#blockSpan'),
+  spanLabel: $('#spanLabel'),
+  blockHeight: $('#blockHeight'),
+  heightLabel: $('#heightLabel'),
+  frameCaption: $('#frameCaption'),
+  frameCaptionHint: $('#frameCaptionHint'),
+  frameType: $('#frameType'),
+  frameCaptionScale: $('#frameCaptionScale'),
+  frameCaptionScaleLabel: $('#frameCaptionScaleLabel'),
+  frameEarlier: $('#frameEarlier'),
+  frameLater: $('#frameLater'),
+  frameDelete: $('#frameDelete'),
+};
+
+// ---------------------------------------------------------------------------
+// Status
+// ---------------------------------------------------------------------------
+function setStatus(message, cls = '') {
+  els.status.className = `status ${cls}`;
+  els.status.textContent = message;
+}
+
+// ---------------------------------------------------------------------------
+// Preview zoom (works for both strip and collage)
 // ---------------------------------------------------------------------------
 const ZOOM_MIN = 0.25;
 const ZOOM_MAX = 4;
@@ -179,8 +155,12 @@ const ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
 let previewZoom = 1;
 
 function applyPreviewZoom() {
+  // For collage: zoom the preview stage
   const stage = document.getElementById('previewStage');
   if (stage) stage.style.zoom = String(previewZoom);
+  // For strip: scale via width (reliable across browsers)
+  const inner = document.getElementById('stripInner');
+  if (inner) inner.style.width = `${previewZoom * 100}%`;
   if (els.zoomResetBtn) els.zoomResetBtn.textContent = `${Math.round(previewZoom * 100)}%`;
   if (els.zoomInBtn) els.zoomInBtn.disabled = previewZoom >= ZOOM_MAX;
   if (els.zoomOutBtn) els.zoomOutBtn.disabled = previewZoom <= ZOOM_MIN;
@@ -202,339 +182,444 @@ function stepZoom(dir) {
   }
 }
 
-// Build the interactive block overlay from the last collage layout. Blocks are
-// positioned as percentages so they stay aligned regardless of display size.
-function buildBlockOverlay() {
-  const overlay = document.getElementById('blockOverlay');
-  if (!overlay || !lastCollageLayout) return;
-  // Only the collage preview has editable blocks; never draw the overlay when
-  // the capture/linestack preview is showing.
-  if (activeTab !== 'collage') {
-    overlay.innerHTML = '';
-    return;
-  }
-  const isMasonry = $('#collageLayout').value === 'masonry';
-  const W = lastCollageLayout.width;
-  const H = lastCollageLayout.height;
-  overlay.innerHTML = lastCollageLayout.layout
-    .map((cell) => {
-      const frame = frames[cell.index];
-      if (!frame) return '';
-      const sel = frame.id === selectedId;
-      const dragging = dragState && dragState.id === frame.id;
-      const left = (cell.x / W) * 100;
-      const top = (cell.y / H) * 100;
-      const w = (cell.w / W) * 100;
-      const h = (cell.h / H) * 100;
-      const pos = String(cell.index + 1).padStart(2, '0');
-      const handles = isMasonry
-        ? `<span class="bh bh-e" data-edge="e" title="Drag to change width"></span>
-           <span class="bh bh-s" data-edge="s" title="Drag to change height"></span>
-           <span class="bh bh-se" data-edge="se" title="Drag to resize"></span>`
-        : '';
-      const cue = dragging && dragCueText
-        ? `<span class="block-box__cue">${dragCueText}</span>`
-        : '';
-      return `<div class="block-box ${sel ? 'selected' : ''} ${dragging ? 'dragging' : ''}" data-index="${cell.index}" style="left:${left}%;top:${top}%;width:${w}%;height:${h}%">
-        <span class="block-box__grip" title="Drag to reorder" role="button" aria-label="Reorder frame ${cell.index + 1}">⠿ #${pos}</span>
-        ${cue}
-        ${handles}
-      </div>`;
-    })
-    .join('');
-}
-
-function move(arr, from, to) {
-  if (to < 0 || to >= arr.length) return arr;
-  const next = [...arr];
-  const [it] = next.splice(from, 1);
-  next.splice(to, 0, it);
-  return next;
-}
-
 // ---------------------------------------------------------------------------
-// Frame queue
+// Export mode switch
 // ---------------------------------------------------------------------------
-function frameBadge(type) {
-  return type === 'keyframe'
-    ? `<span class="badge keyframe">${ICON('keyframe', 12)}<span class="btxt">Keyframe</span></span>`
-    : `<span class="badge">${ICON('subtitle', 12)}<span class="btxt">Subtitle band</span></span>`;
-}
-
-function renderFrames() {
-  els.countLabel.textContent = `${frames.length} / ${MAX_FRAMES} frames`;
-  if (!frames.length) {
-    els.frameList.innerHTML = '<p class="empty">Capture frames from a YouTube tab. Caption-visible frames default to subtitle bands; caption-less frames default to keyframes.</p>';
-    return;
+function setExportMode(mode) {
+  exportMode = mode;
+  $$('.mode-switch__btn').forEach((b) => {
+    const isActive = b.dataset.mode === mode;
+    b.classList.toggle('active', isActive);
+    b.setAttribute('aria-selected', String(isActive));
+  });
+  $$('[data-settings]').forEach((p) => { p.hidden = p.dataset.settings !== mode; });
+  
+  // Show/hide appropriate preview containers
+  if (mode === 'linestack') {
+    els.outputStrip.classList.add('active');
+    els.previewContainer.hidden = true;
+    els.downloadExportBtn.innerHTML = `${ICON('download')}<span class="btxt">Download LineStack</span>`;
+    renderStrip();
+  } else {
+    els.outputStrip.classList.remove('active');
+    els.previewContainer.hidden = false;
+    els.downloadExportBtn.innerHTML = `${ICON('download')}<span class="btxt">Download Collage</span>`;
   }
-  els.frameList.innerHTML = frames.map((f, i) => {
-    const editable = !f.hasBakedCaption;
-    const captionClass = editable ? 'caption editable' : 'caption';
-    const captionAttrs = editable
-      ? `contenteditable="true" spellcheck="false" data-caption-id="${f.id}" data-placeholder="Add caption…"`
-      : '';
-    const captionText = editable ? (f.captionText || '') : (f.captionText || 'No caption text captured');
-    // Caption-size button replaces the old "Edit collage view" button, shown
-    // only for frames with a custom (non-baked) caption. Baked-caption frames
-    // get a 4-button row; the grid auto-fits either count.
-    const sizeBtn = editable
-      ? `<button data-action="caption-size" title="Adjust caption size">${ICON('text-size')}<span class="btxt">Size</span></button>`
-      : '';
-    const scale = Number(f.captionScale) || 1;
-    const sizeRow = (editable && captionSizeOpenId === f.id)
-      ? `<div class="caption-size-row">
-          <button class="sz-btn" data-action="caption-smaller" title="Smaller caption" aria-label="Smaller caption">${ICON('minus')}</button>
-          <span class="caption-size-val">${scale.toFixed(2)}×</span>
-          <button class="sz-btn" data-action="caption-larger" title="Larger caption" aria-label="Larger caption">${ICON('plus')}</button>
-        </div>`
-      : '';
-    return `
-    <article class="frame ${f.id === selectedId ? 'selected' : ''}" draggable="true" data-index="${i}" data-id="${f.id}">
-      <div class="frame__thumb">
-        <img src="${f.url}" alt="frame ${i + 1}">
-        <button class="zoom-ico" data-action="zoom" type="button" aria-label="Preview frame" title="Preview">${ICON('magnifier', 13)}</button>
-      </div>
-      <div class="frame__meta">
-        <div class="frame__title"><strong>#${String(i + 1).padStart(2, '0')} · ${formatTime(f.time)}</strong>${frameBadge(f.type)}</div>
-        <div class="${captionClass}" ${captionAttrs} title="${escapeHtml(f.captionText || '')}">${escapeHtml(captionText)}</div>
-        ${sizeRow}
-        <div class="frame__actions">
-          <button data-action="toggle" title="Toggle keyframe/subtitle">${ICON('swap')}<span class="btxt">Type</span></button>
-          <button data-action="up" title="Move up">${ICON('up')}</button>
-          <button data-action="down" title="Move down">${ICON('down')}</button>
-          ${sizeBtn}
-          <button data-action="remove" class="danger" title="Remove">${ICON('remove')}</button>
-        </div>
-      </div>
-    </article>`;
-  }).join('');
-}
-
-async function updateFrames(next, { reselect = true } = {}) {
-  frames = next;
-  await saveFrames(frames);
-  if (reselect && selectedId && !frames.some((f) => f.id === selectedId)) {
-    selectedId = null;
-  }
-  renderFrames();
+  
   syncBlockEditor();
-  schedulePreview();
+  scheduleExport();
 }
 
-els.frameList.addEventListener('click', async (ev) => {
-  // Let inline caption editing happen without re-rendering the list (which
-  // would destroy the focused contenteditable).
-  if (ev.target.closest('.caption.editable')) return;
-  const btn = ev.target.closest('button');
-  const card = ev.target.closest('.frame');
-  if (!card) return;
-  const idx = Number(card.dataset.index);
-
-  if (!btn) {
-    // Clicking a card just selects/highlights it — no forced tab change.
-    selectBlock(frames[idx]?.id ?? null);
-    return;
-  }
-  const action = btn.dataset.action;
-  if (action === 'zoom') return; // peek affordance — hover-only, click is a no-op
-  let next = [...frames];
-  if (action === 'toggle') {
-    next[idx] = { ...next[idx], type: next[idx].type === 'keyframe' ? 'subtitle' : 'keyframe' };
-  } else if (action === 'caption-size') {
-    // Toggle the inline caption-size stepper for this frame (one open at a time).
-    captionSizeOpenId = captionSizeOpenId === frames[idx].id ? null : frames[idx].id;
-    renderFrames();
-    return;
-  } else if (action === 'caption-smaller' || action === 'caption-larger') {
-    // Adjust this frame's custom-caption scale in ±0.1 steps, clamped 0.5–2.
-    const id = frames[idx].id;
-    const cur = Number(frames[idx].captionScale) || 1;
-    const step = action === 'caption-larger' ? 0.1 : -0.1;
-    const nextScale = Math.max(0.5, Math.min(2, Math.round((cur + step) * 100) / 100));
-    next = frames.map((x) => (x.id === id ? { ...x, captionScale: nextScale } : x));
-    await updateFrames(next); // persists + re-renders (row stays open) + preview
-    return;
-  } else if (action === 'remove') {
-    next.splice(idx, 1);
-  } else if (action === 'up') {
-    next = move(next, idx, idx - 1);
-  } else if (action === 'down') {
-    next = move(next, idx, idx + 1);
-  }
-  await updateFrames(next);
+$$('.mode-switch__btn').forEach((btn) => {
+  btn.addEventListener('click', () => setExportMode(btn.dataset.mode));
 });
 
-// Caption size is adjusted via the +/- stepper buttons (handled in the click
-// handler above). The old range-slider approach fought with the frame card's
-// drag-to-reorder; steppers are pure click targets, no drag conflict.
+// ---------------------------------------------------------------------------
+// Output strip rendering (LineStack editing surface)
+// ---------------------------------------------------------------------------
 
-// Inline caption editing for frames without a baked caption (uploads +
-// caption-less captures). Saves on blur; Enter/Escape commit. Dragging the
-// frame card is suppressed while editing text so the cursor can select.
+// Default crop: Scene (keyframe) always 0/0, SUB reads from inputs
+function getDefaultCrop(type) {
+  if (type === 'keyframe') return { top: 0, bottom: 0 };
+  const top = (Number($('#defaultCropTop')?.value) || 0) / 100;
+  const bottom = (Number($('#defaultCropBottom')?.value) || 0) / 100;
+  return { top, bottom };
+}
+
+function renderStrip() {
+  if (els.countLabel) els.countLabel.textContent = `${frames.length} / ${MAX_FRAMES}`;
+  
+  if (!frames.length) {
+    els.outputStrip.innerHTML = '';
+    els.emptyState.hidden = false;
+    els.emptyState.innerHTML = `<div class="empty-state__inner">
+      ${emptyStateArt(80)}
+      <p>No frames yet</p>
+      <p class="empty-state__hint">Press Capture or Auto to start building your strip.</p>
+      <p class="empty-state__hint">Enable YouTube captions for subtitle bands.</p>
+    </div>`;
+    return;
+  }
+  
+  els.emptyState.hidden = true;
+  
+  // Watermark
+  const watermark = $('#stackWatermark').value.trim();
+  
+  let html = '<div class="output-strip-inner" id="stripInner">';
+  
+  frames.forEach((f, i) => {
+    const pos = String(i + 1).padStart(2, '0');
+    const defaults = getDefaultCrop(f.type);
+    const cropTop = typeof f.cropTop === 'number' ? f.cropTop : defaults.top;
+    const cropBottom = typeof f.cropBottom === 'number' ? f.cropBottom : defaults.bottom;
+    const keptRatio = Math.max(0.05, 1 - cropTop - cropBottom);
+    const topPct = Math.round(cropTop * 100);
+    const bottomPct = Math.round(cropBottom * 100);
+    const timeStr = formatTime(f.time);
+    const caption = f.captionText ? escapeHtml(f.captionText) : '';
+    
+    const aspectH = 9 * keptRatio;
+    const aspectRatio = `16 / ${aspectH}`;
+    const imgTopPct = -(cropTop / keptRatio) * 100;
+    
+    const showWatermark = watermark && i === frames.length - 1;
+    const hasCrop = typeof f.cropTop === 'number' || typeof f.cropBottom === 'number';
+    
+    html += `<div class="strip-frame" data-index="${i}" data-id="${f.id}" data-type="${f.type}">
+      <div class="strip-frame__crop-view" style="aspect-ratio: ${aspectRatio};">
+        <img src="${f.url}" alt="Frame ${pos}" style="position:absolute;top:${imgTopPct}%;width:100%;height:auto;">
+      </div>
+      ${showWatermark ? `<div class="strip-watermark">${escapeHtml(watermark)}</div>` : ''}
+      <div class="strip-frame__overlay">
+        <div class="strip-frame__top">
+          <span class="strip-frame__grip" data-grip="${i}">⠿</span>
+          <span class="strip-frame__pos">#${pos}</span>
+          ${timeStr && f.videoId ? `<span class="strip-frame__pos strip-frame__time-link" data-action="seek-time" data-video-id="${f.videoId}" data-time="${f.time}" role="button" tabindex="0" title="Jump to ${timeStr}">${timeStr}</span>` : (timeStr ? `<span class="strip-frame__pos">${timeStr}</span>` : '')}
+          <span class="spacer"></span>
+          <span class="strip-frame__type" data-type="${f.type}" data-action="toggle-type" role="button" tabindex="0" aria-label="Toggle frame type (currently ${f.type === 'keyframe' ? 'scene' : 'subtitle'})">${f.type === 'keyframe' ? 'Scene' : 'Sub'}</span>
+          <span class="crop-inline">
+            <span class="crop-inline__label">T</span>
+            <button class="crop-btn" data-crop-step="top" data-step="-1">−</button>
+            <span class="crop-row__val" data-crop-val="top">${topPct}%</span>
+            <button class="crop-btn" data-crop-step="top" data-step="1">+</button>
+          </span>
+          <span class="crop-inline">
+            <span class="crop-inline__label">B</span>
+            <button class="crop-btn" data-crop-step="bottom" data-step="-1">−</button>
+            <span class="crop-row__val" data-crop-val="bottom">${bottomPct}%</span>
+            <button class="crop-btn" data-crop-step="bottom" data-step="1">+</button>
+          </span>
+          <button class="strip-act" data-action="move-up" title="Move up" ${i === 0 ? 'disabled' : ''}>${ICON('arrow-up', 10)}</button>
+          <button class="strip-act" data-action="move-down" title="Move down" ${i === frames.length - 1 ? 'disabled' : ''}>${ICON('arrow-down', 10)}</button>
+          <button class="strip-act" data-action="jump-top" title="Jump to top" ${i === 0 ? 'disabled' : ''}>${ICON('jump-top', 10)}</button>
+          <button class="strip-act" data-action="jump-bottom" title="Jump to bottom" ${i === frames.length - 1 ? 'disabled' : ''}>${ICON('jump-bottom', 10)}</button>
+          <button class="strip-act" data-action="duplicate" title="Duplicate frame">${ICON('duplicate', 10)}</button>
+          <button class="strip-act strip-act--danger" data-action="skip" title="Skip">${ICON('remove', 10)}</button>
+        </div>
+        ${caption && !f.hasBakedCaption ? `<div class="strip-frame__caption" contenteditable="true" data-caption-id="${f.id}" data-placeholder="Add caption…">${caption}</div>` : ''}
+      </div>
+    </div>`;
+  });
+  
+  html += '</div>';
+  els.outputStrip.innerHTML = html;
+  
+  // Apply zoom via width scaling (reliable across browsers)
+  const inner = document.getElementById('stripInner');
+  if (inner) inner.style.width = `${previewZoom * 100}%`;
+}
+
+// ---------------------------------------------------------------------------
+// Strip interactions
+// ---------------------------------------------------------------------------
+
+
+
+els.outputStrip.addEventListener('keydown', (ev) => {
+  if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches('[data-action="toggle-type"]')) {
+    ev.preventDefault();
+    ev.target.click();
+  }
+});
+
+els.outputStrip.addEventListener('click', async (ev) => {
+  const actionEl = ev.target.closest('[data-action]');
+  if (!actionEl) return;
+  
+  const frame = actionEl.closest('.strip-frame');
+  if (!frame) return;
+  const idx = Number(frame.dataset.index);
+  const action = actionEl.dataset.action;
+  
+  if (action === 'toggle-type') {
+    const f = frames[idx];
+    const newType = f.type === 'keyframe' ? 'subtitle' : 'keyframe';
+    const defaults = getDefaultCrop(newType);
+    const next = frames.map((x, j) =>
+      j === idx ? { ...x, type: newType, cropTop: defaults.top, cropBottom: defaults.bottom } : x
+    );
+    await updateFrames(next);
+  } else if (action === 'seek-time') {
+    const videoId = actionEl.dataset.videoId;
+    const time = Number(actionEl.dataset.time);
+    if (!videoId || !Number.isFinite(time)) return;
+    // Try to seek the active tab if it's the same video
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab?.url?.includes('youtube.com') && tab.url.includes(videoId)) {
+        await chrome.tabs.sendMessage(tab.id, { action: 'seek-to', time });
+        return;
+      }
+    } catch {}
+    // Fallback: open in new tab
+    window.open(`https://www.youtube.com/watch?v=${videoId}&t=${Math.floor(time)}`, '_blank');
+  } else if (action === 'duplicate') {
+    const copy = { ...frames[idx], id: crypto.randomUUID() };
+    const next = [...frames];
+    next.splice(idx + 1, 0, copy);
+    await updateFrames(next);
+  } else if (action === 'skip') {
+    const next = frames.filter((_, j) => j !== idx);
+    await updateFrames(next);
+  } else if (action === 'move-up') {
+    if (idx > 0) await updateFrames(move(frames, idx, idx - 1));
+  } else if (action === 'move-down') {
+    if (idx < frames.length - 1) await updateFrames(move(frames, idx, idx + 1));
+  } else if (action === 'jump-top') {
+    if (idx > 0) await updateFrames(move(frames, idx, 0));
+  } else if (action === 'jump-bottom') {
+    if (idx < frames.length - 1) await updateFrames(move(frames, idx, frames.length - 1));
+  }
+});
+
+// Per-frame crop stepper buttons
+els.outputStrip.addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('[data-crop-step]');
+  if (!btn) return;
+  const frame = btn.closest('.strip-frame');
+  if (!frame) return;
+  const idx = Number(frame.dataset.index);
+  const direction = btn.dataset.cropStep; // 'top' or 'bottom'
+  const step = Number(btn.dataset.step); // -5 or +5
+  
+  const f = frames[idx];
+  const defaults = getDefaultCrop(f.type);
+  let cropTop = typeof f.cropTop === 'number' ? f.cropTop : defaults.top;
+  let cropBottom = typeof f.cropBottom === 'number' ? f.cropBottom : defaults.bottom;
+  
+  if (direction === 'top') {
+    cropTop = Math.max(0, Math.min(90, Math.round(cropTop * 100) + step)) / 100;
+    // Ensure at least 5% kept region
+    if (cropTop + cropBottom > 0.95) cropBottom = Math.max(0, 0.95 - cropTop);
+  } else {
+    cropBottom = Math.max(0, Math.min(90, Math.round(cropBottom * 100) + step)) / 100;
+    if (cropTop + cropBottom > 0.95) cropTop = Math.max(0, 0.95 - cropBottom);
+  }
+  
+  // Update frame data
+  frames = frames.map((x, j) => j === idx ? { ...x, cropTop, cropBottom } : x);
+  await saveFrames(frames);
+  
+  // Update display values
+  const topVal = frame.querySelector('[data-crop-val="top"]');
+  const botVal = frame.querySelector('[data-crop-val="bottom"]');
+  if (topVal) topVal.textContent = `${Math.round(cropTop * 100)}%`;
+  if (botVal) botVal.textContent = `${Math.round(cropBottom * 100)}%`;
+  
+  // Update the image position live
+  const keptRatio = Math.max(0.05, 1 - cropTop - cropBottom);
+  const cropView = frame.querySelector('.strip-frame__crop-view');
+  if (cropView) {
+    cropView.style.aspectRatio = `16 / ${9 * keptRatio}`;
+    const img = cropView.querySelector('img');
+    if (img) {
+      img.style.top = `${-(cropTop / keptRatio) * 100}%`;
+    }
+  }
+  
+  scheduleExport();
+});
+
+// Caption editing
 async function saveCaptionEdit(id, el) {
   const text = el.textContent.trim();
   const f = frames.find((x) => x.id === id);
   if (!f || text === (f.captionText || '')) return;
   frames = frames.map((x) => (x.id === id ? { ...x, captionText: text } : x));
   await saveFrames(frames);
-  schedulePreview();
+  scheduleExport();
 }
-els.frameList.addEventListener('blur', (ev) => {
-  const el = ev.target.closest('.caption.editable');
+
+els.outputStrip.addEventListener('blur', (ev) => {
+  const el = ev.target.closest('.strip-frame__caption');
   if (el?.dataset.captionId) saveCaptionEdit(el.dataset.captionId, el);
 }, true);
-els.frameList.addEventListener('keydown', (ev) => {
-  const el = ev.target.closest('.caption.editable');
+
+els.outputStrip.addEventListener('keydown', (ev) => {
+  const el = ev.target.closest('.strip-frame__caption');
   if (!el) return;
   if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); el.blur(); }
   else if (ev.key === 'Escape') { ev.preventDefault(); el.blur(); }
 });
 
-let dragFrom = null;
-els.frameList.addEventListener('dragstart', (ev) => {
-  // Don't start a card drag while editing a caption, using the size stepper,
-  // or pressing the peek icon.
-  if (ev.target.closest('.caption.editable, .caption-size-row, .zoom-ico')) { ev.preventDefault(); return; }
-  const card = ev.target.closest('.frame');
-  if (!card) return;
-  dragFrom = Number(card.dataset.index);
-  card.classList.add('dragging');
-});
-els.frameList.addEventListener('dragend', (ev) => ev.target.closest('.frame')?.classList.remove('dragging'));
-els.frameList.addEventListener('dragover', (ev) => { if (ev.target.closest('.frame')) ev.preventDefault(); });
-els.frameList.addEventListener('drop', async (ev) => {
-  ev.preventDefault();
-  const card = ev.target.closest('.frame');
-  if (!card || dragFrom == null) return;
-  await updateFrames(move(frames, dragFrom, Number(card.dataset.index)));
-  dragFrom = null;
-});
-
 // ---------------------------------------------------------------------------
-// Frame peek: hover the zoom icon to show an enlarged preview of the frame.
-// One shared floating element (position: fixed) so it isn't clipped by the
-// frame-list's overflow:auto. First hover delays ~150ms; later hovers are
-// instant (the standard "skip delay once one tooltip has opened" feel).
+// Strip drag-to-reorder (uses bounding rects for reliable detection)
 // ---------------------------------------------------------------------------
-let zoomShowTimer = null;
-let zoomHideTimer = null;
-let zoomShownOnce = false;
-let zoomFrameId = null; // frame currently shown in the peek
-
-function positionFrameZoom(iconRect) {
-  const el = els.frameZoom;
-  const margin = 10;
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  const w = el.offsetWidth;
-  const h = el.offsetHeight;
-  let left = iconRect.right + margin;
-  let top = iconRect.top + iconRect.height / 2 - h / 2;
-  if (left + w > vw - margin) left = iconRect.left - w - margin; // flip to left
-  if (left < margin) left = margin;
-  if (top < margin) top = margin;
-  if (top + h > vh - margin) top = vh - h - margin;
-  el.style.left = `${Math.round(left)}px`;
-  el.style.top = `${Math.round(top)}px`;
-}
-
-function showFrameZoom(frame, iconEl) {
-  if (!els.frameZoom.hidden && zoomFrameId === frame.id) return; // already showing this frame
-  zoomFrameId = frame.id;
-  const pos = frames.findIndex((x) => x.id === frame.id) + 1;
-  const meta = `#${String(pos).padStart(2, '0')} · ${formatTime(frame.time)}`;
-  const cap = frame.captionText ? `<div class="frame-zoom__cap">${escapeHtml(frame.captionText)}</div>` : '';
-  els.frameZoom.innerHTML =
-    `<img class="frame-zoom__img" src="${frame.url}" alt="">` +
-    `<div class="frame-zoom__meta">${meta}</div>` +
-    cap;
-  els.frameZoom.hidden = false;
-  els.frameZoom.setAttribute('aria-hidden', 'false');
-  // Measure after the layout pass so clamping uses the real size.
-  requestAnimationFrame(() => positionFrameZoom(iconEl.getBoundingClientRect()));
-}
-
-function hideFrameZoom() {
-  clearTimeout(zoomShowTimer);
-  zoomFrameId = null;
-  els.frameZoom.hidden = true;
-  els.frameZoom.setAttribute('aria-hidden', 'true');
-  els.frameZoom.innerHTML = '';
-}
-
-function scheduleHideFrameZoom() {
-  clearTimeout(zoomHideTimer);
-  zoomHideTimer = setTimeout(hideFrameZoom, 100);
-}
-
-els.frameList.addEventListener('mouseover', (ev) => {
-  const ico = ev.target.closest('.zoom-ico');
-  if (!ico) return;
-  const card = ico.closest('.frame');
-  const frame = frames.find((f) => f.id === card?.dataset.id);
+els.outputStrip.addEventListener('pointerdown', (ev) => {
+  const grip = ev.target.closest('.strip-frame__grip');
+  if (!grip) return;
+  const frame = grip.closest('.strip-frame');
   if (!frame) return;
-  clearTimeout(zoomHideTimer);
-  clearTimeout(zoomShowTimer);
-  const show = () => { showFrameZoom(frame, ico); zoomShownOnce = true; };
-  if (zoomShownOnce) show();
-  else zoomShowTimer = setTimeout(show, 150);
+  ev.preventDefault();
+  const idx = Number(frame.dataset.index);
+  
+  // Cache all frame rects for reliable hit testing during drag
+  const frameEls = $$('.strip-frame', els.outputStrip);
+  const rects = frameEls.map((f) => ({
+    el: f,
+    index: Number(f.dataset.index),
+    rect: f.getBoundingClientRect(),
+  }));
+  
+  stripDragState = {
+    fromIndex: idx,
+    startX: ev.clientX,
+    startY: ev.clientY,
+    moved: false,
+    frame,
+    rects,
+  };
+  frame.classList.add('dragging');
+  grip.setPointerCapture(ev.pointerId);
 });
 
-els.frameList.addEventListener('mouseout', (ev) => {
-  const ico = ev.target.closest('.zoom-ico');
-  if (!ico) return;
-  const to = ev.relatedTarget;
-  if (to && (ico.contains(to) || els.frameZoom.contains(to))) return;
-  clearTimeout(zoomShowTimer);
-  scheduleHideFrameZoom();
+els.outputStrip.addEventListener('pointermove', (ev) => {
+  if (!stripDragState) return;
+  const distance = Math.hypot(ev.clientX - stripDragState.startX, ev.clientY - stripDragState.startY);
+  if (distance < 5) return;
+  stripDragState.moved = true;
+  
+  // Clear all indicators
+  $$('.strip-frame', els.outputStrip).forEach((f) => {
+    f.classList.remove('drop-before', 'drop-after');
+  });
+  
+  // Refresh all rects
+  const cursorY = ev.clientY;
+  for (const info of stripDragState.rects) {
+    info.rect = info.el.getBoundingClientRect();
+  }
+  
+  // Get non-dragged frames sorted by vertical position
+  const others = stripDragState.rects
+    .filter((info) => info.index !== stripDragState.fromIndex)
+    .sort((a, b) => a.rect.top - b.rect.top);
+  
+  if (others.length === 0) return;
+  
+  let targetInfo = null;
+  let position = 'before';
+  
+  // Find which frame the cursor is over
+  for (const info of others) {
+    if (cursorY >= info.rect.top && cursorY <= info.rect.bottom) {
+      targetInfo = info;
+      // 60/40 threshold: top 60% = "before", bottom 40% = "after"
+      const threshold = info.rect.top + info.rect.height * 0.6;
+      position = cursorY < threshold ? 'before' : 'after';
+      break;
+    }
+  }
+  
+  // If cursor is above all frames, drop before the first one
+  if (!targetInfo && cursorY < others[0].rect.top) {
+    targetInfo = others[0];
+    position = 'before';
+  }
+  
+  // If cursor is below all frames, drop after the last one
+  if (!targetInfo && cursorY > others[others.length - 1].rect.bottom) {
+    targetInfo = others[others.length - 1];
+    position = 'after';
+  }
+  
+  // If cursor is between two frames (in a gap), find the nearest
+  if (!targetInfo) {
+    let bestDist = Infinity;
+    for (const info of others) {
+      const distToTop = Math.abs(cursorY - info.rect.top);
+      const distToBot = Math.abs(cursorY - info.rect.bottom);
+      const minDist = Math.min(distToTop, distToBot);
+      if (minDist < bestDist) {
+        bestDist = minDist;
+        targetInfo = info;
+        position = distToTop < distToBot ? 'before' : 'after';
+      }
+    }
+  }
+  
+  if (targetInfo) targetInfo.el.classList.add(`drop-${position}`);
 });
 
-// Keep the preview open while the cursor is over it (e.g. reading a caption).
-els.frameZoom.addEventListener('mouseover', () => clearTimeout(zoomHideTimer));
-els.frameZoom.addEventListener('mouseout', (ev) => {
-  const to = ev.relatedTarget;
-  if (to && els.frameZoom.contains(to)) return;
-  scheduleHideFrameZoom();
+els.outputStrip.addEventListener('pointerup', async (ev) => {
+  if (!stripDragState) return;
+  const state = stripDragState;
+  stripDragState = null;
+  state.frame.classList.remove('dragging');
+  
+  const dropTarget = $('.strip-frame.drop-before, .strip-frame.drop-after', els.outputStrip);
+  $$('.strip-frame', els.outputStrip).forEach((f) => {
+    f.classList.remove('drop-before', 'drop-after');
+  });
+  
+  if (!state.moved || !dropTarget) return;
+  
+  const targetIdx = Number(dropTarget.dataset.index);
+  const position = dropTarget.classList.contains('drop-before') ? 'before' : 'after';
+  let insertIdx = position === 'before' ? targetIdx : targetIdx + 1;
+  
+  if (insertIdx !== state.fromIndex) {
+    const next = reorderByInsertion(frames, state.fromIndex, insertIdx);
+    await updateFrames(next);
+  }
+});
+
+els.outputStrip.addEventListener('pointercancel', () => {
+  if (stripDragState) {
+    stripDragState.frame.classList.remove('dragging');
+    stripDragState = null;
+  }
+  $$('.strip-frame', els.outputStrip).forEach((f) => {
+    f.classList.remove('drop-before', 'drop-after');
+  });
 });
 
 // ---------------------------------------------------------------------------
 // Capture
 // ---------------------------------------------------------------------------
-function applyCaptureRule(nextFrames) {
-  const rule = els.captureRule.value;
-  if (rule === 'caption-aware') return nextFrames;
-  return nextFrames.map((f, i) => {
-    if (rule === 'first-keyframe') return { ...f, type: i === 0 ? 'keyframe' : 'subtitle' };
-    if (rule === 'all-subtitle') return { ...f, type: 'subtitle' };
-    return f;
-  });
-}
-
 async function captureAndStore({ auto = false } = {}) {
   els.captureBtn.disabled = true;
   try {
-    setStatus('Capturing active YouTube frame…');
+    setStatus('Capturing…');
     const response = await captureFrame();
     if (auto) {
       if (autoVideoId && response.videoId && response.videoId !== autoVideoId) {
         stopAuto();
-        setStatus('Auto-capture stopped — video changed.', 'warn');
+        setStatus('Auto stopped — video changed.', 'warn');
         return;
       }
       autoVideoId ||= response.videoId;
     }
     let next = await appendCapture(response);
-    next = applyCaptureRule(next);
+    // Apply default preset type and bake in crop values at capture time
+    const defaultType = $('#defaultCaptureType')?.value || 'subtitle';
+    const defaultCrop = getDefaultCrop(defaultType);
+    if (next.length > 0) {
+      next = next.map((f, i) => i === next.length - 1
+        ? { ...f, type: defaultType, cropTop: defaultCrop.top, cropBottom: defaultCrop.bottom }
+        : f);
+    }
     frames = next;
     await saveFrames(frames);
-    renderFrames();
-    schedulePreview();
-    setStatus(`Captured frame ${frames.length}.`, 'ok');
+    renderStrip();
+    scheduleExport();
+    setStatus(`Captured #${frames.length}`, 'ok');
+    // Auto-scroll window to bottom during auto-capture
+    if (auto && exportMode === 'linestack') {
+      requestAnimationFrame(() => {
+        const lastFrame = els.outputStrip.querySelector('.strip-frame:last-child');
+        if (lastFrame) {
+          lastFrame.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
+      });
+    }
   } catch (err) {
     console.error(err);
     setStatus(err.message || String(err), 'warn');
   } finally {
-    els.captureBtn.disabled = false;
+    // Don't re-enable capture if auto is still running
+    els.captureBtn.disabled = autoRunning;
   }
 }
 
@@ -545,27 +630,34 @@ async function autoTick() {
   const delay = Math.max(0.5, Math.min(60, Number(els.interval.value) || 1)) * 1000;
   autoTimer = setTimeout(autoTick, delay);
 }
+
 function stopAuto() {
   autoRunning = false;
   clearTimeout(autoTimer);
   autoTimer = null;
   autoVideoId = null;
-  els.autoBtn.innerHTML = `${ICON('play')}<span class="btxt">Start auto</span>`;
+  els.autoBtn.innerHTML = `${ICON('play')}<span class="btxt">Auto</span>`;
   els.autoBtn.classList.add('secondary');
+  els.autoBtn.classList.remove('auto-btn--active');
+  els.captureBtn.disabled = false;
 }
+
 function startAuto() {
   autoRunning = true;
   autoVideoId = null;
-  els.autoBtn.innerHTML = `${ICON('stop')}<span class="btxt">Stop auto</span>`;
+  els.autoBtn.innerHTML = `${ICON('stop')}<span class="btxt">Stop</span>`;
   els.autoBtn.classList.remove('secondary');
+  els.autoBtn.classList.add('auto-btn--active');
+  els.captureBtn.disabled = true;
   autoTick();
 }
 
 els.captureBtn.addEventListener('click', captureAndStore);
 els.autoBtn.addEventListener('click', () => (autoRunning ? stopAuto() : startAuto()));
 
-// Upload images into the frame queue (Capture tab). Accepts one or many
-// files — used by both the file-picker and drag-and-drop paths.
+// ---------------------------------------------------------------------------
+// Upload / paste / drop images
+// ---------------------------------------------------------------------------
 async function uploadFiles(files) {
   const imgs = [...files].filter((f) => f.type.startsWith('image/'));
   if (!imgs.length) {
@@ -575,12 +667,10 @@ async function uploadFiles(files) {
   els.uploadBtn.disabled = true;
   try {
     setStatus(`Adding ${imgs.length} image${imgs.length > 1 ? 's' : ''}…`);
-    // Append sequentially — appendUpload reloads frames each call, so we must
-    // await one before the next to avoid losing earlier appends.
     for (const f of imgs) frames = await appendUpload(f);
     await saveFrames(frames);
-    renderFrames();
-    schedulePreview();
+    renderStrip();
+    scheduleExport();
     setStatus(`Added ${imgs.length} image${imgs.length > 1 ? 's' : ''} (${frames.length}).`, 'ok');
   } catch (err) {
     console.error(err);
@@ -589,6 +679,7 @@ async function uploadFiles(files) {
     els.uploadBtn.disabled = false;
   }
 }
+
 els.uploadBtn.addEventListener('click', () => els.uploadInput.click());
 els.uploadInput.addEventListener('change', () => {
   const files = els.uploadInput.files;
@@ -596,35 +687,23 @@ els.uploadInput.addEventListener('change', () => {
   els.uploadInput.value = '';
 });
 
-// Drag-and-drop image files onto the capture card (the upload button is the
-// visual anchor; the whole card is a roomier drop target).
-const captureCard = $('.card[data-panel="capture"]');
-captureCard.addEventListener('dragover', (ev) => {
+const appEl = $('.app');
+window.addEventListener('dragover', (ev) => {
   if (ev.dataTransfer && [...ev.dataTransfer.types].includes('Files')) {
     ev.preventDefault();
-    ev.dataTransfer.dropEffect = 'copy';
-    captureCard.classList.add('drop-active');
+    appEl.classList.add('dragover');
   }
 });
-captureCard.addEventListener('dragleave', (ev) => {
-  if (!captureCard.contains(ev.relatedTarget)) captureCard.classList.remove('drop-active');
+window.addEventListener('dragleave', (ev) => {
+  if (!ev.relatedTarget || !appEl.contains(ev.relatedTarget)) appEl.classList.remove('dragover');
 });
-captureCard.addEventListener('drop', async (ev) => {
+window.addEventListener('drop', async (ev) => {
   ev.preventDefault();
-  captureCard.classList.remove('drop-active');
+  appEl.classList.remove('dragover');
   const files = ev.dataTransfer?.files ? [...ev.dataTransfer.files] : [];
   if (files.length) await uploadFiles(files);
 });
-// Prevent the browser from opening files dropped outside the drop zone.
-window.addEventListener('dragover', (ev) => {
-  if (ev.dataTransfer && [...ev.dataTransfer.types].includes('Files')) ev.preventDefault();
-});
-window.addEventListener('drop', (ev) => {
-  if (ev.dataTransfer && [...ev.dataTransfer.types].includes('Files')) ev.preventDefault();
-});
 
-// Paste image(s) from the clipboard (screenshots, copied images). Ignored when
-// the paste target is a text field / caption editor so text paste still works.
 window.addEventListener('paste', async (ev) => {
   const t = ev.target;
   if (t && t.closest && t.closest('input, textarea, select, [contenteditable="true"]')) return;
@@ -643,13 +722,13 @@ window.addEventListener('paste', async (ev) => {
 });
 
 // ---------------------------------------------------------------------------
-// Live preview (debounced, active export tab only)
+// Export rendering (debounced)
 // ---------------------------------------------------------------------------
-let previewTimer = null;
-function schedulePreview() {
+let exportTimer = null;
+function scheduleExport() {
   previewToken += 1;
-  clearTimeout(previewTimer);
-  previewTimer = setTimeout(runPreview, 350);
+  clearTimeout(exportTimer);
+  exportTimer = setTimeout(runExport, 300);
 }
 
 function collageCfg() {
@@ -668,80 +747,332 @@ function collageCfg() {
 function stackCfg() {
   return {
     outputWidth: Number($('#stackWidth').value),
-    bottomKeepRatio: Number($('#bottomKeepRatio').value),
-    enableKeyframeGap: $('#enableGap').value === 'true',
-    gapSize: Number($('#gapSize').value) || 0,
+    bottomKeepRatio: 0.2, // default fallback; per-frame cropTop/cropBottom overrides
     watermarkText: $('#stackWatermark').value.trim(),
-    jpgQuality: Number($('#stackQuality').value) || 0.9,
+    jpgQuality: 1.0, // always max quality
   };
 }
 
-async function runPreview() {
-  if (activeTab === 'capture') {
-    const frame = latestCaptureFrame(frames);
-    if (!frame) {
-      setPreviewEmpty('Capture frames — the preview updates automatically.');
-      els.downloadCaptureBtn.disabled = true;
-      return;
-    }
-    setPreviewSource(frame.url, `Capture #${String(frames.length).padStart(2, '0')}`);
-    els.downloadCaptureBtn.disabled = false;
-    return;
-  }
+function setExportAvailable(available) {
+  els.downloadExportBtn.disabled = !available;
+  if (els.copyBtn) els.copyBtn.disabled = !available;
+  if (els.shareXBtn) els.shareXBtn.disabled = !available;
+  if (els.shareFbBtn) els.shareFbBtn.disabled = !available;
+}
+
+async function runExport() {
   if (!frames.length) {
-    setPreviewEmpty('Capture frames — the preview updates automatically.');
-    els.downloadStackBtn.disabled = true;
-    els.downloadCollageBtn.disabled = true;
+    setExportAvailable(false);
     return;
   }
+  
   const token = previewToken;
   try {
-    if (activeTab === 'linestack') {
-      const blobs = await renderLineStack(
-        frames.map((f) => ({ source: f.url, isKeyframe: f.type === 'keyframe', captionText: f.captionText, hasBakedCaption: f.hasBakedCaption, captionScale: f.captionScale })),
-        stackCfg()
-      );
-      if (token !== previewToken) return;
-      lastStackBlobs = blobs;
-      setPreviewImage(blobs[0], blobs.length > 1 ? `LineStack · page 1/${blobs.length}` : 'LineStack');
-      els.downloadStackBtn.disabled = false;
+    if (exportMode === 'linestack') {
+      // For LineStack, the strip IS the preview — no canvas render needed until download
+      setExportAvailable(true);
+      els.previewLabel.textContent = `${frames.length} frames`;
     } else {
+      // For Collage, render to canvas
       const result = await renderCollage(
-        frames.map((f) => ({ source: f.url, view: f.view, block: f.block, captionText: f.captionText, hasBakedCaption: f.hasBakedCaption, captionScale: f.captionScale })),
+        frames.map((f) => ({
+          source: f.url,
+          view: f.view,
+          block: f.block,
+          captionText: f.captionText,
+          hasBakedCaption: f.hasBakedCaption,
+          captionScale: f.captionScale,
+        })),
         collageCfg()
       );
       if (token !== previewToken || !result) return;
       lastCollageBlob = result.blob;
       lastCollageLayout = { layout: result.layout, width: result.width, height: result.height };
-      setPreviewImage(result.blob, 'Collage · drag a block to move/resize');
+      
+      const img = document.getElementById('previewImg');
+      if (img) {
+        const nextUrl = URL.createObjectURL(result.blob);
+        const oldUrl = previewUrl;
+        img.onload = () => { if (oldUrl && oldUrl !== nextUrl) URL.revokeObjectURL(oldUrl); };
+        previewUrl = nextUrl;
+        img.src = nextUrl;
+      }
       buildBlockOverlay();
-      els.downloadCollageBtn.disabled = false;
+      setExportAvailable(true);
+      els.previewLabel.textContent = 'live';
     }
   } catch (err) {
     if (token !== previewToken) return;
     console.error(err);
-    setStatus(`Preview failed: ${err.message || err}`, 'warn');
+    setStatus(`Export failed: ${err.message || err}`, 'warn');
   }
 }
 
 // ---------------------------------------------------------------------------
-// Collage block selection + view controls
+// Collage block overlay
+// ---------------------------------------------------------------------------
+function buildBlockOverlay() {
+  const overlay = document.getElementById('blockOverlay');
+  if (!overlay || !lastCollageLayout || exportMode !== 'collage') {
+    if (overlay) overlay.innerHTML = '';
+    return;
+  }
+  const isMasonry = $('#collageLayout').value === 'masonry';
+  const W = lastCollageLayout.width;
+  const H = lastCollageLayout.height;
+  overlay.innerHTML = lastCollageLayout.layout
+    .map((cell) => {
+      const frame = frames[cell.index];
+      if (!frame) return '';
+      const sel = frame.id === selectedId;
+      const dragging = dragState && dragState.id === frame.id;
+      const left = (cell.x / W) * 100;
+      const top = (cell.y / H) * 100;
+      const w = (cell.w / W) * 100;
+      const h = (cell.h / H) * 100;
+      const pos = String(cell.index + 1).padStart(2, '0');
+      const handles = isMasonry
+        ? `<span class="bh bh-e" data-edge="e"></span>
+           <span class="bh bh-s" data-edge="s"></span>
+           <span class="bh bh-se" data-edge="se"></span>`
+        : '';
+      const cue = dragging && dragCueText ? `<span class="block-box__cue">${dragCueText}</span>` : '';
+      return `<div class="block-box ${sel ? 'selected' : ''} ${dragging ? 'dragging' : ''}" data-index="${cell.index}" style="left:${left}%;top:${top}%;width:${w}%;height:${h}%">
+        <span class="block-box__grip" title="Drag to reorder">⠿ #${pos}</span>
+        ${cue}
+        ${handles}
+      </div>`;
+    })
+    .join('');
+}
+
+// Block overlay pointer events (collage drag)
+els.previewContainer.addEventListener('pointerdown', (ev) => {
+  if (exportMode !== 'collage') return;
+  const grip = ev.target.closest('.block-box__grip');
+  const edge = ev.target.closest('.bh');
+  const box = ev.target.closest('.block-box');
+  if (!box) return;
+  
+  const index = Number(box.dataset.index);
+  const f = frames[index];
+  if (!f) return;
+  
+  selectedId = f.id;
+  syncBlockEditor();
+  buildBlockOverlay();
+  
+  if (grip) {
+    reorderState = {
+      fromIndex: index,
+      startX: ev.clientX,
+      startY: ev.clientY,
+      moved: false,
+      insertionIndex: index,
+    };
+    ev.preventDefault();
+    els.previewContainer.setPointerCapture?.(ev.pointerId);
+    return;
+  }
+  
+  if (edge) {
+    const img = document.getElementById('previewImg');
+    if (!img || !lastCollageLayout) return;
+    const scale = lastCollageLayout.width / img.getBoundingClientRect().width;
+    const cell = lastCollageLayout.layout[index];
+    dragState = {
+      id: f.id,
+      index,
+      box,
+      mode: edge.dataset.edge,
+      startX: ev.clientX,
+      startY: ev.clientY,
+      startSpan: f.block.colSpan,
+      startHeight: f.block.heightScale,
+      scale,
+      cols: Number($('#collageColumns').value) || 2,
+      cellUnit: (lastCollageLayout.width - (Number($('#collageGap').value) || 0) * (Number($('#collageColumns').value) + 1)) / (Number($('#collageColumns').value) || 1),
+      baseHOutput: cell ? cell.h / (f.block.heightScale || 1) : 200,
+      cellW: cell ? cell.w : 200,
+      cellH: cell ? cell.h : 200,
+      moved: false,
+    };
+    ev.preventDefault();
+    els.previewContainer.setPointerCapture?.(ev.pointerId);
+    return;
+  }
+  
+  const img = document.getElementById('previewImg');
+  if (!img || !lastCollageLayout) return;
+  const cell = lastCollageLayout.layout[index];
+  if (!cell) return;
+  const scale = lastCollageLayout.width / img.getBoundingClientRect().width;
+  dragState = {
+    id: f.id,
+    index,
+    box,
+    mode: 'pan',
+    startX: ev.clientX,
+    startY: ev.clientY,
+    startOffX: f.view.offsetX,
+    startOffY: f.view.offsetY,
+    scale,
+    cellW: cell.w / scale,
+    cellH: cell.h / scale,
+    moved: false,
+  };
+  ev.preventDefault();
+  els.previewContainer.setPointerCapture?.(ev.pointerId);
+});
+
+els.previewContainer.addEventListener('pointermove', (ev) => {
+  if (reorderState) {
+    const distance = Math.hypot(ev.clientX - reorderState.startX, ev.clientY - reorderState.startY);
+    if (distance < 6) return;
+    reorderState.moved = true;
+    $$('.block-box', els.previewContainer).forEach((b) => b.classList.remove('insert-before', 'insert-after'));
+    const target = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.block-box');
+    if (!target) return;
+    const tidx = Number(target.dataset.index);
+    const ins = insertionIndexForPoint(tidx, target.getBoundingClientRect(), ev.clientX, ev.clientY);
+    reorderState.insertionIndex = ins;
+    target.classList.add(ins === tidx ? 'insert-before' : 'insert-after');
+    const source = $(`.block-box[data-index="${reorderState.fromIndex}"]`, els.previewContainer);
+    if (source) source.classList.add('reorder-source');
+    return;
+  }
+  if (!dragState) return;
+  const f = frames.find((x) => x.id === dragState.id);
+  if (!f) return;
+  const dxCss = ev.clientX - dragState.startX;
+  const dyCss = ev.clientY - dragState.startY;
+  
+  if (dragState.mode === 'pan') {
+    const offsetX = Math.max(-1, Math.min(1, dragState.startOffX + (dxCss / Math.max(1, dragState.cellW)) * 2));
+    const offsetY = Math.max(-1, Math.min(1, dragState.startOffY + (dyCss / Math.max(1, dragState.cellH)) * 2));
+    dragState.moved = true;
+    els.blockOffsetX.value = offsetX;
+    els.blockOffsetY.value = offsetY;
+    dragCueText = `⤢ ${offsetX.toFixed(2)}, ${offsetY.toFixed(2)}`;
+    updateLiveCue();
+    patchSelectedView({ offsetX, offsetY }, { rerender: false });
+    scheduleLiveRender();
+  } else {
+    const patch = {};
+    if (dragState.mode.includes('e') || dragState.mode.includes('se')) {
+      const dxOut = dxCss * dragState.scale;
+      const spanDelta = Math.round(dxOut / dragState.cellUnit);
+      patch.colSpan = Math.max(1, Math.min(dragState.cols, dragState.startSpan + spanDelta));
+    }
+    if (dragState.mode.includes('s')) {
+      const dyOut = dyCss * dragState.scale;
+      patch.heightScale = Math.max(0.4, Math.min(2.5, dragState.startHeight + dyOut / Math.max(1, dragState.baseHOutput)));
+      patch.heightScale = Math.round(patch.heightScale * 20) / 20;
+    }
+    dragState.moved = true;
+    dragCueText = `${patch.colSpan ?? f.block.colSpan} col · ${Number(patch.heightScale ?? f.block.heightScale).toFixed(2)}×`;
+    updateLiveCue();
+    patchSelectedBlock(patch, { rerender: false });
+    scheduleLiveRender();
+  }
+});
+
+let liveRenderPending = false;
+let liveRenderBusy = false;
+function scheduleLiveRender() {
+  if (liveRenderPending) return;
+  liveRenderPending = true;
+  requestAnimationFrame(runLiveRender);
+}
+
+async function runLiveRender() {
+  liveRenderPending = false;
+  if (!dragState || liveRenderBusy || exportMode !== 'collage') return;
+  liveRenderBusy = true;
+  try {
+    const result = await renderCollage(
+      frames.map((f) => ({
+        source: f.url, view: f.view, block: f.block,
+        captionText: f.captionText, hasBakedCaption: f.hasBakedCaption, captionScale: f.captionScale,
+      })),
+      collageCfg()
+    );
+    if (!result || !dragState) return;
+    lastCollageBlob = result.blob;
+    lastCollageLayout = { layout: result.layout, width: result.width, height: result.height };
+    const img = document.getElementById('previewImg');
+    if (img) {
+      const nextUrl = URL.createObjectURL(result.blob);
+      const oldUrl = previewUrl;
+      img.onload = () => { if (oldUrl && oldUrl !== nextUrl) URL.revokeObjectURL(oldUrl); };
+      previewUrl = nextUrl;
+      img.src = nextUrl;
+    }
+    buildBlockOverlay();
+    if (dragState) {
+      const box = document.querySelector(`.block-box[data-index="${dragState.index}"]`);
+      if (box) {
+        dragState.box = box;
+        box.classList.add('dragging', 'selected');
+      }
+    }
+  } catch (err) {
+    console.error(err);
+  } finally {
+    liveRenderBusy = false;
+  }
+}
+
+function updateLiveCue() {
+  if (!dragState || !dragState.box) return;
+  let cue = dragState.box.querySelector('.block-box__cue');
+  if (!cue) {
+    cue = document.createElement('span');
+    cue.className = 'block-box__cue';
+    dragState.box.appendChild(cue);
+  }
+  cue.textContent = dragCueText;
+  dragState.box.classList.add('dragging', 'selected');
+}
+
+function endDrag() {
+  if (!dragState) return;
+  dragState = null;
+  dragCueText = '';
+  buildBlockOverlay();
+}
+
+async function endPointer(ev, { cancel = false } = {}) {
+  if (reorderState) {
+    const state = reorderState;
+    reorderState = null;
+    if (!cancel && state.moved) await updateFrames(reorderByInsertion(frames, state.fromIndex, state.insertionIndex));
+    else buildBlockOverlay();
+    els.previewContainer.releasePointerCapture?.(ev.pointerId);
+    return;
+  }
+  endDrag();
+}
+
+els.previewContainer.addEventListener('pointerup', (ev) => endPointer(ev));
+els.previewContainer.addEventListener('pointercancel', (ev) => endPointer(ev, { cancel: true }));
+window.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Escape' && reorderState) {
+    reorderState = null;
+    buildBlockOverlay();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Collage block editor
 // ---------------------------------------------------------------------------
 function selectedFrame() {
   return frames.find((f) => f.id === selectedId) || null;
 }
 
-function selectBlock(id, { switchToCollage = false } = {}) {
-  selectedId = id;
-  if (id && switchToCollage && activeTab !== 'collage') switchTab('collage');
-  renderFrames();
-  syncBlockEditor();
-  buildBlockOverlay();
-}
-
 function syncBlockEditor() {
   const f = selectedFrame();
-  if (!f || activeTab !== 'collage') {
+  if (!f || exportMode !== 'collage') {
     els.blockEditor.hidden = true;
     return;
   }
@@ -749,7 +1080,6 @@ function syncBlockEditor() {
   const isMasonry = $('#collageLayout').value === 'masonry';
   els.blockEditor.hidden = false;
   els.blockTitle.textContent = `Block #${String(pos).padStart(2, '0')}`;
-  // Size group (width span + height) only meaningful in masonry.
   els.blockSizeGroup.style.display = isMasonry ? '' : 'none';
   const maxSpan = Math.max(1, Math.min(6, Number($('#collageColumns').value) || 1));
   els.blockSpan.max = String(maxSpan);
@@ -778,19 +1108,28 @@ async function patchSelectedBlock(patch, { rerender = true } = {}) {
   frames = frames.map((x) => (x.id === f.id ? { ...x, block: { ...x.block, ...patch } } : x));
   await saveFrames(frames);
   const cur = selectedFrame();
-  els.spanLabel.textContent = `${cur.block.colSpan}`;
-  els.heightLabel.textContent = `${Number(cur.block.heightScale).toFixed(2)}×`;
-  if (rerender) schedulePreview();
+  if (cur) {
+    els.spanLabel.textContent = `${cur.block.colSpan}`;
+    els.heightLabel.textContent = `${Number(cur.block.heightScale).toFixed(2)}×`;
+  }
+  if (rerender) scheduleExport();
 }
 
 async function patchSelectedView(patch, { rerender = true } = {}) {
   const f = selectedFrame();
   if (!f) return;
-  const next = frames.map((x) => (x.id === f.id ? { ...x, view: { ...x.view, ...patch } } : x));
-  frames = next;
+  frames = frames.map((x) => (x.id === f.id ? { ...x, view: { ...x.view, ...patch } } : x));
   await saveFrames(frames);
-  els.zoomLabel.textContent = `${Number(selectedFrame().view.zoom).toFixed(2)}×`;
-  if (rerender) schedulePreview();
+  const cur = selectedFrame();
+  if (cur) els.zoomLabel.textContent = `${Number(cur.view.zoom).toFixed(2)}×`;
+  if (rerender) scheduleExport();
+}
+
+async function patchSelectedFrame(patch) {
+  const f = selectedFrame();
+  if (!f) return;
+  await updateFrames(frames.map((x) => (x.id === f.id ? { ...x, ...patch } : x)));
+  syncBlockEditor();
 }
 
 els.blockZoom.addEventListener('input', () => patchSelectedView({ zoom: Number(els.blockZoom.value) }));
@@ -812,14 +1151,8 @@ els.blockReset.addEventListener('click', async () => {
     : x));
   await saveFrames(frames);
   syncBlockEditor();
-  schedulePreview();
+  scheduleExport();
 });
-
-async function patchSelectedFrame(patch) {
-  const f = selectedFrame();
-  if (!f) return;
-  await updateFrames(frames.map((x) => (x.id === f.id ? { ...x, ...patch } : x)));
-}
 
 els.frameCaption.addEventListener('change', () => patchSelectedFrame({ captionText: els.frameCaption.value.trim() }));
 els.frameType.addEventListener('change', () => patchSelectedFrame({ type: els.frameType.value }));
@@ -844,323 +1177,254 @@ els.frameDelete.addEventListener('click', () => {
   updateFrames(next);
 });
 
-// Direct on-block manipulation inside the collage preview:
-//  - drag block body  -> pan the image within the block (view.offset)
-//  - drag right edge   -> change width (block.colSpan) [masonry]
-//  - drag bottom edge  -> change height (block.heightScale) [masonry]
-//  - drag corner       -> both
-function refreshOverlayCue() {
+els.blockClose.addEventListener('click', () => {
+  selectedId = null;
+  syncBlockEditor();
   buildBlockOverlay();
-}
-
-els.preview.addEventListener('pointerdown', (ev) => {
-  if (activeTab !== 'collage' || !lastCollageLayout) return;
-  const box = ev.target.closest('.block-box');
-  const stage = document.getElementById('previewStage');
-  if (!box || !stage) return;
-  const index = Number(box.dataset.index);
-  const frame = frames[index];
-  if (!frame) return;
-  ev.preventDefault();
-  selectBlock(frame.id);
-
-  if (ev.target.closest('.block-box__grip')) {
-    reorderState = {
-      fromIndex: index,
-      insertionIndex: index,
-      pointerId: ev.pointerId,
-      startX: ev.clientX,
-      startY: ev.clientY,
-      moved: false,
-    };
-    box.classList.add('reorder-source');
-    els.preview.setPointerCapture?.(ev.pointerId);
-    return;
-  }
-
-  const cell = lastCollageLayout.layout.find((c) => c.index === index);
-  const rect = stage.getBoundingClientRect();
-  const scale = lastCollageLayout.width / rect.width; // output px per CSS px
-  const handle = ev.target.closest('.bh');
-  const edge = handle ? handle.dataset.edge : null;
-  const isMasonry = $('#collageLayout').value === 'masonry';
-  const cols = Math.max(1, Math.min(6, Number($('#collageColumns').value) || 1));
-  const cellUnit = lastCollageLayout.width / cols; // approx output px per column
-
-  dragState = {
-    id: frame.id,
-    index,
-    mode: edge && isMasonry ? `resize-${edge}` : 'pan',
-    startX: ev.clientX,
-    startY: ev.clientY,
-    startOffX: frame.view.offsetX,
-    startOffY: frame.view.offsetY,
-    startSpan: frame.block.colSpan,
-    startHeight: frame.block.heightScale,
-    cellW: cell.w / scale, // displayed CSS px
-    cellH: cell.h / scale,
-    baseHOutput: cell.h / Math.max(0.35, frame.block.heightScale), // output px at 1x
-    cellUnit,
-    cols,
-    scale,
-    box,
-    startBoxW: parseFloat(box.style.width) || 0,
-    startBoxH: parseFloat(box.style.height) || 0,
-    moved: false,
-  };
-  els.preview.setPointerCapture?.(ev.pointerId);
-  refreshOverlayCue();
 });
 
-els.preview.addEventListener('pointermove', (ev) => {
-  if (reorderState) {
-    const distance = Math.hypot(ev.clientX - reorderState.startX, ev.clientY - reorderState.startY);
-    if (distance < 6) return;
-    reorderState.moved = true;
-    $$('.block-box', els.preview).forEach((box) => box.classList.remove('insert-before', 'insert-after'));
-    const target = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.block-box');
-    if (!target) return;
-    const index = Number(target.dataset.index);
-    const insertionIndex = insertionIndexForPoint(index, target.getBoundingClientRect(), ev.clientX, ev.clientY);
-    reorderState.insertionIndex = insertionIndex;
-    target.classList.add(insertionIndex === index ? 'insert-before' : 'insert-after');
-    const source = $(`.block-box[data-index="${reorderState.fromIndex}"]`, els.preview);
-    if (source) source.classList.add('reorder-source');
-    return;
-  }
-  if (!dragState) return;
-  const f = frames.find((x) => x.id === dragState.id);
-  if (!f) return;
-  const dxCss = ev.clientX - dragState.startX;
-  const dyCss = ev.clientY - dragState.startY;
-
-  if (dragState.mode === 'pan') {
-    const offsetX = Math.max(-1, Math.min(1, dragState.startOffX + (dxCss / Math.max(1, dragState.cellW)) * 2));
-    const offsetY = Math.max(-1, Math.min(1, dragState.startOffY + (dyCss / Math.max(1, dragState.cellH)) * 2));
-    dragState.moved = true;
-    els.blockOffsetX.value = offsetX;
-    els.blockOffsetY.value = offsetY;
-    dragCueText = `⤢ ${offsetX.toFixed(2)}, ${offsetY.toFixed(2)}`;
-    updateLiveCue();
-    patchSelectedView({ offsetX, offsetY }, { rerender: false });
-    scheduleLiveRender();
-  } else {
-    const patch = {};
-    if (dragState.mode.includes('e') || dragState.mode.includes('se')) {
-      const dxOut = dxCss * dragState.scale;
-      const spanDelta = Math.round(dxOut / dragState.cellUnit);
-      const colSpan = Math.max(1, Math.min(dragState.cols, dragState.startSpan + spanDelta));
-      patch.colSpan = colSpan;
-    }
-    if (dragState.mode.includes('s')) {
-      const dyOut = dyCss * dragState.scale;
-      const heightScale = Math.max(0.4, Math.min(2.5, dragState.startHeight + dyOut / Math.max(1, dragState.baseHOutput)));
-      patch.heightScale = Math.round(heightScale * 20) / 20;
-    }
-    dragState.moved = true;
-    const span = patch.colSpan ?? f.block.colSpan;
-    const hs = patch.heightScale ?? f.block.heightScale;
-    dragCueText = `${span} col · ${Number(hs).toFixed(2)}×`;
-    updateLiveCue();
-    patchSelectedBlock(patch, { rerender: false });
-    scheduleLiveRender();
-  }
-});
-
-// rAF-throttled full-res re-render used *during* a drag. Cheap because the
-// engine caches decoded bitmaps — only canvas compositing runs each frame.
-let liveRenderPending = false;
-let liveRenderBusy = false;
-function scheduleLiveRender() {
-  if (liveRenderPending) return;
-  liveRenderPending = true;
-  requestAnimationFrame(runLiveRender);
-}
-async function runLiveRender() {
-  liveRenderPending = false;
-  if (!dragState || liveRenderBusy || activeTab !== 'collage') return;
-  liveRenderBusy = true;
-  try {
-    const result = await renderCollage(
-      frames.map((f) => ({ source: f.url, view: f.view, block: f.block, captionText: f.captionText, hasBakedCaption: f.hasBakedCaption, captionScale: f.captionScale })),
-      collageCfg()
-    );
-    if (!result || !dragState) return;
-    lastCollageBlob = result.blob;
-    lastCollageLayout = { layout: result.layout, width: result.width, height: result.height };
-    // Swap only the <img> src so the overlay/handles survive the update.
-    const img = document.getElementById('previewImg');
-    if (img) {
-      const nextUrl = URL.createObjectURL(result.blob);
-      const oldUrl = previewUrl;
-      img.onload = () => { if (oldUrl && oldUrl !== nextUrl) URL.revokeObjectURL(oldUrl); };
-      previewUrl = nextUrl;
-      img.src = nextUrl;
-    }
-    // Rebuild overlay to the new geometry and re-bind the dragged box element.
-    buildBlockOverlay();
-    if (dragState) {
-      const box = document.querySelector(`.block-box[data-index="${dragState.index}"]`);
-      if (box) {
-        dragState.box = box;
-        dragState.startBoxW = parseFloat(box.style.width) || dragState.startBoxW;
-        dragState.startBoxH = parseFloat(box.style.height) || dragState.startBoxH;
-        box.classList.add('dragging', 'selected');
-      }
-    }
-  } catch (err) {
-    console.error(err);
-  } finally {
-    liveRenderBusy = false;
-  }
-}
-
-// Update the cue label on the currently dragged box without a full rebuild.
-function updateLiveCue() {
-  if (!dragState || !dragState.box) return;
-  let cue = dragState.box.querySelector('.block-box__cue');
-  if (!cue) {
-    cue = document.createElement('span');
-    cue.className = 'block-box__cue';
-    dragState.box.appendChild(cue);
-  }
-  cue.textContent = dragCueText;
-  dragState.box.classList.add('dragging', 'selected');
-}
-
-function endDrag() {
-  if (!dragState) return;
-  dragState = null;
-  dragCueText = '';
-  // The live render already produced final-quality output; just settle overlay.
-  buildBlockOverlay();
-}
-async function endPointer(ev, { cancel = false } = {}) {
-  if (reorderState) {
-    const state = reorderState;
-    reorderState = null;
-    if (!cancel && state.moved) await updateFrames(reorderByInsertion(frames, state.fromIndex, state.insertionIndex));
-    else buildBlockOverlay();
-    els.preview.releasePointerCapture?.(ev.pointerId);
-    return;
-  }
-  endDrag();
-}
-els.preview.addEventListener('pointerup', (ev) => endPointer(ev));
-els.preview.addEventListener('pointercancel', (ev) => endPointer(ev, { cancel: true }));
-window.addEventListener('keydown', (ev) => {
-  if (ev.key === 'Escape' && reorderState) {
-    reorderState = null;
-    buildBlockOverlay();
-  }
-});
-
-// ---------------------------------------------------------------------------
-// Controls -> live preview
-// ---------------------------------------------------------------------------
-els.ratio.addEventListener('input', () => {
-  els.ratioLabel.textContent = `${Math.round(Number(els.ratio.value) * 100)}%`;
-});
-els.ratio.dispatchEvent(new Event('input'));
-
-const stackControls = ['#stackWidth', '#stackQuality', '#bottomKeepRatio', '#enableGap', '#gapSize', '#stackWatermark'];
-const collageControls = ['#collageLayout', '#collageColumns', '#collageAspect', '#collageWidth', '#collageGap', '#collageRadius', '#collageBg'];
-[...stackControls, ...collageControls].forEach((sel) => {
-  const el = $(sel);
-  if (el) el.addEventListener('input', schedulePreview);
-});
-
-els.captureRule.addEventListener('change', async () => {
-  await updateFrames(applyCaptureRule(frames));
-});
-
-// Layout/columns changes affect which block controls are relevant.
 $('#collageLayout').addEventListener('change', syncBlockEditor);
 $('#collageColumns').addEventListener('input', syncBlockEditor);
 
 // ---------------------------------------------------------------------------
-// Downloads
+// Type-bound crop inputs (Top%/Bot% default values based on type)
 // ---------------------------------------------------------------------------
-els.downloadStackBtn.addEventListener('click', () => {
-  lastStackBlobs.forEach((blob, i) => {
-    const suffix = lastStackBlobs.length > 1 ? `-${String(i + 1).padStart(2, '0')}` : '';
-    downloadBlob(blob, `youtube-linestack${suffix}.jpg`);
+let savedVisCropTop = 0;
+let savedVisCropBot = 0;
+let savedSubCropTop = Number($('#defaultCropTop')?.value) || 80;
+let savedSubCropBot = Number($('#defaultCropBottom')?.value) || 0;
+
+function syncCropInputsToType() {
+  const type = $('#defaultCaptureType')?.value;
+  const topInput = $('#defaultCropTop');
+  const botInput = $('#defaultCropBottom');
+  if (!topInput || !botInput) return;
+
+  if (type === 'keyframe') {
+    // Scene: force 0/0 and disable (Scene never crops)
+    topInput.value = '0';
+    botInput.value = '0';
+    topInput.disabled = true;
+    botInput.disabled = true;
+  } else {
+    // SUB: show saved SUB values and enable
+    topInput.value = String(savedSubCropTop);
+    botInput.value = String(savedSubCropBot);
+    topInput.disabled = false;
+    botInput.disabled = false;
+  }
+}
+
+// Save SUB crop values whenever they change (Scene is always 0/0, disabled)
+$('#defaultCropTop')?.addEventListener('input', () => {
+  const type = $('#defaultCaptureType')?.value;
+  if (type !== 'keyframe') savedSubCropTop = Number($('#defaultCropTop').value) || 0;
+});
+$('#defaultCropBottom')?.addEventListener('input', () => {
+  const type = $('#defaultCaptureType')?.value;
+  if (type !== 'keyframe') savedSubCropBot = Number($('#defaultCropBottom').value) || 0;
+});
+
+$('#defaultCaptureType')?.addEventListener('change', syncCropInputsToType);
+// Apply on boot
+syncCropInputsToType();
+
+// ---------------------------------------------------------------------------
+// Export settings -> live preview
+// ---------------------------------------------------------------------------
+const stackControls = ['#stackWidth', '#stackWatermark', '#defaultCropTop', '#defaultCropBottom', '#defaultCaptureType'];
+const collageControls = ['#collageLayout', '#collageColumns', '#collageAspect', '#collageWidth', '#collageGap', '#collageRadius', '#collageBg'];
+[...stackControls, ...collageControls].forEach((sel) => {
+  const el = $(sel);
+  if (el) el.addEventListener('input', () => {
+    scheduleExport();
+    // Settings that need strip re-render
+    if (exportMode === 'linestack' && ['#stackWatermark', '#defaultCropTop', '#defaultCropBottom', '#defaultCaptureType'].includes(sel)) {
+      renderStrip();
+      const inner = document.getElementById('stripInner');
+      if (inner) inner.style.width = `${previewZoom * 100}%`;
+    }
   });
 });
-els.downloadCaptureBtn.addEventListener('click', () => {
-  const frame = latestCaptureFrame(frames);
-  if (!frame) return;
-  const a = document.createElement('a');
-  a.href = frame.url;
-  a.download = `youtube-frame-${String(frames.length).padStart(2, '0')}.jpg`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+
+// ---------------------------------------------------------------------------
+// Downloads
+// ---------------------------------------------------------------------------
+els.downloadExportBtn.addEventListener('click', async () => {
+  if (exportMode === 'linestack') {
+    // Render LineStack on demand
+    setStatus('Rendering LineStack…');
+    try {
+      const blobs = await renderLineStack(
+        frames.map((f) => ({
+          source: f.url,
+          isKeyframe: f.type === 'keyframe',
+          cropTop: f.cropTop,
+          cropBottom: f.cropBottom,
+          captionText: f.captionText,
+          hasBakedCaption: f.hasBakedCaption,
+          captionScale: f.captionScale,
+        })),
+        stackCfg()
+      );
+      lastStackBlobs = blobs;
+      blobs.forEach((blob, i) => {
+        const suffix = blobs.length > 1 ? `-${String(i + 1).padStart(2, '0')}` : '';
+        downloadBlob(blob, `youtube-linestack${suffix}.jpg`);
+      });
+      setStatus(`Downloaded ${blobs.length} page${blobs.length > 1 ? 's' : ''}`, 'ok');
+    } catch (err) {
+      console.error(err);
+      setStatus(`Export failed: ${err.message || err}`, 'warn');
+    }
+  } else {
+    downloadBlob(lastCollageBlob, 'youtube-collage.jpg');
+  }
 });
-els.downloadCollageBtn.addEventListener('click', () => downloadBlob(lastCollageBlob, 'youtube-collage.jpg'));
 
 // ---------------------------------------------------------------------------
-// Tabs
+// Share helpers — get the rendered blob for copy/share actions
 // ---------------------------------------------------------------------------
-function switchTab(tab) {
-  activeTab = tab;
-  $$('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === tab));
-  $$('[data-panel]').forEach((panel) => { panel.hidden = panel.dataset.panel !== tab; });
-  els.frameQueueCard.hidden = tab === 'collage';
-  syncBlockEditor();
-  schedulePreview();
+async function getExportBlob() {
+  if (exportMode === 'linestack') {
+    setStatus('Rendering…');
+    const blobs = await renderLineStack(
+      frames.map((f) => ({
+        source: f.url,
+        isKeyframe: f.type === 'keyframe',
+        cropTop: f.cropTop,
+        cropBottom: f.cropBottom,
+        captionText: f.captionText,
+        hasBakedCaption: f.hasBakedCaption,
+        captionScale: f.captionScale,
+      })),
+      stackCfg()
+    );
+    lastStackBlobs = blobs;
+    return { blob: blobs[0], filename: 'youtube-linestack.jpg' };
+  }
+  return { blob: lastCollageBlob, filename: 'youtube-collage.jpg' };
 }
-$$('.tab').forEach((tab) => tab.addEventListener('click', () => switchTab(tab.dataset.tab)));
 
-// ---------------------------------------------------------------------------
-// Clear all (added to capture panel actions)
-// ---------------------------------------------------------------------------
-const clearBtn = document.createElement('button');
-clearBtn.className = 'ghost wide danger';
-clearBtn.innerHTML = `${ICON('trash')}<span class="btxt">Clear all frames</span>`;
-clearBtn.addEventListener('click', async () => {
+// Copy image to clipboard
+if (els.copyBtn) {
+  els.copyBtn.addEventListener('click', async () => {
+    try {
+      const { blob } = await getExportBlob();
+      if (!blob) { setStatus('Nothing to copy yet.', 'warn'); return; }
+      await navigator.clipboard.write([new ClipboardItem({ 'image/jpeg': blob })]);
+      setStatus('Copied to clipboard!', 'ok');
+    } catch (err) {
+      console.error(err);
+      setStatus(`Copy failed: ${err.message || err}`, 'warn');
+    }
+  });
+}
+
+// Share to X (Twitter)
+if (els.shareXBtn) {
+  els.shareXBtn.addEventListener('click', async () => {
+    try {
+      const { blob, filename } = await getExportBlob();
+      if (!blob) { setStatus('Nothing to share yet.', 'warn'); return; }
+      const file = new File([blob], filename, { type: 'image/jpeg' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: 'YouTube LineStack' });
+          setStatus('Shared!', 'ok');
+          return;
+        } catch (err) {
+          if (err.name === 'AbortError') return;
+        }
+      }
+      // Fallback: open X compose in new tab
+      window.open('https://twitter.com/intent/tweet?text=Check+out+my+YouTube+LineStack!', '_blank');
+      downloadBlob(blob, filename);
+      setStatus('Downloaded — attach the image to your post.', 'warn');
+    } catch (err) {
+      console.error(err);
+      setStatus(`Share failed: ${err.message || err}`, 'warn');
+    }
+  });
+}
+
+// Share to Facebook
+if (els.shareFbBtn) {
+  els.shareFbBtn.addEventListener('click', async () => {
+    try {
+      const { blob, filename } = await getExportBlob();
+      if (!blob) { setStatus('Nothing to share yet.', 'warn'); return; }
+      const file = new File([blob], filename, { type: 'image/jpeg' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: 'YouTube LineStack' });
+          setStatus('Shared!', 'ok');
+          return;
+        } catch (err) {
+          if (err.name === 'AbortError') return;
+        }
+      }
+      // Fallback: open Facebook share dialog
+      window.open('https://www.facebook.com/sharer/sharer.php', '_blank');
+      downloadBlob(blob, filename);
+      setStatus('Downloaded — attach the image to your post.', 'warn');
+    } catch (err) {
+      console.error(err);
+      setStatus(`Share failed: ${err.message || err}`, 'warn');
+    }
+  });
+}
+
+els.clearBtn.addEventListener('click', async () => {
+  if (!confirm('Clear all frames? This cannot be undone.')) return;
   stopAuto();
   await clearFrames();
   clearBitmapCache();
   frames = [];
   selectedId = null;
-  renderFrames();
+  renderStrip();
   syncBlockEditor();
-  schedulePreview();
+  scheduleExport();
   setStatus('Cleared all frames.');
 });
-$('.capture-first .actions').append(clearBtn);
+
+// ---------------------------------------------------------------------------
+// Preview zoom controls
+// ---------------------------------------------------------------------------
+els.zoomInBtn.addEventListener('click', () => stepZoom(1));
+els.zoomOutBtn.addEventListener('click', () => stepZoom(-1));
+els.zoomResetBtn.addEventListener('click', () => setPreviewZoom(1));
+els.previewContainer.addEventListener('wheel', (ev) => {
+  if (!(ev.ctrlKey || ev.metaKey)) return;
+  ev.preventDefault();
+  stepZoom(ev.deltaY < 0 ? 1 : -1);
+}, { passive: false });
+
+// Also zoom on Ctrl+wheel over the strip
+els.outputStrip.addEventListener('wheel', (ev) => {
+  if (!(ev.ctrlKey || ev.metaKey)) return;
+  ev.preventDefault();
+  stepZoom(ev.deltaY < 0 ? 1 : -1);
+}, { passive: false });
 
 // ---------------------------------------------------------------------------
 // Boot
 // ---------------------------------------------------------------------------
 applyIcons();
-
-// Preview zoom controls
-els.zoomInBtn.addEventListener('click', () => stepZoom(1));
-els.zoomOutBtn.addEventListener('click', () => stepZoom(-1));
-els.zoomResetBtn.addEventListener('click', () => setPreviewZoom(1));
-// Ctrl/Cmd + wheel to zoom over the preview.
-els.preview.addEventListener('wheel', (ev) => {
-  if (!(ev.ctrlKey || ev.metaKey)) return;
-  ev.preventDefault();
-  stepZoom(ev.deltaY < 0 ? 1 : -1);
-}, { passive: false });
 applyPreviewZoom();
-
-// Show the chinchilla empty state immediately on the default Capture tab.
-setPreviewEmpty('Capture frames — the preview updates automatically.');
+setExportMode('linestack');
 
 loadFrames().then((loaded) => {
   frames = loaded;
-  renderFrames();
-  schedulePreview();
+  renderStrip();
+  scheduleExport();
 });
+
 onFramesChanged((next) => {
   if (frameSavesPending) return;
   frames = next;
   if (selectedId && !frames.some((f) => f.id === selectedId)) selectedId = null;
-  renderFrames();
+  renderStrip();
   syncBlockEditor();
-  schedulePreview();
+  scheduleExport();
 });
