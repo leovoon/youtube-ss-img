@@ -389,14 +389,21 @@ button .pixi { filter: drop-shadow(1px 1px 0 rgba(0,0,0,.35)); }
   pointer-events: none;
 }
 .footer-dock > * { pointer-events: auto; }
-.export-footer { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; padding: 6px 10px 8px; }
+.export-footer { display: grid; gap: 6px; padding: 6px 10px 8px; }
 .export-btn { font-size: 12px; height: 32px; padding: 0 16px; }
-.clear-btn { font-size: 11px; height: 32px; padding: 0 10px; }
-.share-btn {
-  height: 32px; padding: 0 10px;
+.export-actions { display: flex; gap: 4px; align-items: center; }
+.clear-btn { font-size: 11px; height: 28px; padding: 0 10px; margin-inline-start: auto; }
+.icon-action-btn {
+  width: 28px; height: 28px; padding: 0;
+  background: transparent; border: 1px solid var(--line); border-radius: 2px;
+  color: var(--muted); cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
+  transition: color 150ms ease-out, border-color 150ms ease-out, background-color 150ms ease-out;
 }
-.share-btn:disabled { opacity: .25; cursor: not-allowed; }
+.icon-action-btn:hover:not(:disabled) { color: var(--text); border-color: rgba(250,250,249,.30); background: rgba(250,250,249,.06); }
+.icon-action-btn:active:not(:disabled) { transform: scale(0.96); }
+.icon-action-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.icon-action-btn:disabled { opacity: .25; cursor: not-allowed; }
 
 /* Bottom padding on scrollable areas so content clears the fixed dock */
 .output-strip { padding-bottom: 80px; }

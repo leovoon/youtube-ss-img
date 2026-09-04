@@ -104,6 +104,9 @@ const els = {
   ratio: null, // removed — per-frame crop only
   ratioLabel: null,
   downloadExportBtn: $('#downloadExportBtn'),
+  copyBtn: $('#copyBtn'),
+  shareXBtn: $('#shareXBtn'),
+  shareFbBtn: $('#shareFbBtn'),
   shareBtn: $('#shareBtn'),
   clearBtn: $('#clearBtn'),
   zoomInBtn: $('#zoomInBtn'),
@@ -752,7 +755,9 @@ function stackCfg() {
 
 function setExportAvailable(available) {
   els.downloadExportBtn.disabled = !available;
-  if (els.shareBtn) els.shareBtn.disabled = !available;
+  if (els.copyBtn) els.copyBtn.disabled = !available;
+  if (els.shareXBtn) els.shareXBtn.disabled = !available;
+  if (els.shareFbBtn) els.shareFbBtn.disabled = !available;
 }
 
 async function runExport() {
@@ -1277,63 +1282,95 @@ els.downloadExportBtn.addEventListener('click', async () => {
   }
 });
 
-// Share button — uses Web Share API to share the rendered image
-if (els.shareBtn) {
-  els.shareBtn.addEventListener('click', async () => {
-    let blob = null;
-    let filename = 'youtube-linestack.jpg';
+// ---------------------------------------------------------------------------
+// Share helpers — get the rendered blob for copy/share actions
+// ---------------------------------------------------------------------------
+async function getExportBlob() {
+  if (exportMode === 'linestack') {
+    setStatus('Rendering…');
+    const blobs = await renderLineStack(
+      frames.map((f) => ({
+        source: f.url,
+        isKeyframe: f.type === 'keyframe',
+        cropTop: f.cropTop,
+        cropBottom: f.cropBottom,
+        captionText: f.captionText,
+        hasBakedCaption: f.hasBakedCaption,
+        captionScale: f.captionScale,
+      })),
+      stackCfg()
+    );
+    lastStackBlobs = blobs;
+    return { blob: blobs[0], filename: 'youtube-linestack.jpg' };
+  }
+  return { blob: lastCollageBlob, filename: 'youtube-collage.jpg' };
+}
 
-    if (exportMode === 'linestack') {
-      setStatus('Rendering for share…');
-      try {
-        const blobs = await renderLineStack(
-          frames.map((f) => ({
-            source: f.url,
-            isKeyframe: f.type === 'keyframe',
-            cropTop: f.cropTop,
-            cropBottom: f.cropBottom,
-            captionText: f.captionText,
-            hasBakedCaption: f.hasBakedCaption,
-            captionScale: f.captionScale,
-          })),
-          stackCfg()
-        );
-        lastStackBlobs = blobs;
-        blob = blobs[0];
-      } catch (err) {
-        console.error(err);
-        setStatus(`Share failed: ${err.message || err}`, 'warn');
-        return;
-      }
-    } else {
-      blob = lastCollageBlob;
-      filename = 'youtube-collage.jpg';
+// Copy image to clipboard
+if (els.copyBtn) {
+  els.copyBtn.addEventListener('click', async () => {
+    try {
+      const { blob } = await getExportBlob();
+      if (!blob) { setStatus('Nothing to copy yet.', 'warn'); return; }
+      await navigator.clipboard.write([new ClipboardItem({ 'image/jpeg': blob })]);
+      setStatus('Copied to clipboard!', 'ok');
+    } catch (err) {
+      console.error(err);
+      setStatus(`Copy failed: ${err.message || err}`, 'warn');
     }
+  });
+}
 
-    if (!blob) {
-      setStatus('Nothing to share yet.', 'warn');
-      return;
-    }
-
-    const file = new File([blob], filename, { type: 'image/jpeg' });
-
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try {
-        await navigator.share({
-          files: [file],
-          title: 'YouTube LineStack',
-          text: '',
-        });
-        setStatus('Shared!', 'ok');
-      } catch (err) {
-        if (err.name !== 'AbortError') {
-          setStatus(`Share failed: ${err.message || err}`, 'warn');
+// Share to X (Twitter)
+if (els.shareXBtn) {
+  els.shareXBtn.addEventListener('click', async () => {
+    try {
+      const { blob, filename } = await getExportBlob();
+      if (!blob) { setStatus('Nothing to share yet.', 'warn'); return; }
+      const file = new File([blob], filename, { type: 'image/jpeg' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: 'YouTube LineStack' });
+          setStatus('Shared!', 'ok');
+          return;
+        } catch (err) {
+          if (err.name === 'AbortError') return;
         }
       }
-    } else {
-      // Fallback: download the file and notify user
+      // Fallback: open X compose in new tab
+      window.open('https://twitter.com/intent/tweet?text=Check+out+my+YouTube+LineStack!', '_blank');
       downloadBlob(blob, filename);
-      setStatus('Web Share not available — downloaded instead. Upload to X manually.', 'warn');
+      setStatus('Downloaded — attach the image to your post.', 'warn');
+    } catch (err) {
+      console.error(err);
+      setStatus(`Share failed: ${err.message || err}`, 'warn');
+    }
+  });
+}
+
+// Share to Facebook
+if (els.shareFbBtn) {
+  els.shareFbBtn.addEventListener('click', async () => {
+    try {
+      const { blob, filename } = await getExportBlob();
+      if (!blob) { setStatus('Nothing to share yet.', 'warn'); return; }
+      const file = new File([blob], filename, { type: 'image/jpeg' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: 'YouTube LineStack' });
+          setStatus('Shared!', 'ok');
+          return;
+        } catch (err) {
+          if (err.name === 'AbortError') return;
+        }
+      }
+      // Fallback: open Facebook share dialog
+      window.open('https://www.facebook.com/sharer/sharer.php', '_blank');
+      downloadBlob(blob, filename);
+      setStatus('Downloaded — attach the image to your post.', 'warn');
+    } catch (err) {
+      console.error(err);
+      setStatus(`Share failed: ${err.message || err}`, 'warn');
     }
   });
 }
