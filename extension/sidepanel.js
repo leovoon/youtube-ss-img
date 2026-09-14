@@ -16,7 +16,7 @@ import {
 // ---------------------------------------------------------------------------
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
-const { insertionIndexForPoint, reorderByInsertion } = globalThis.YTFrameCore;
+const { insertionIndexForPoint, stripDropTarget, edgeScrollVelocity, reorderByInsertion } = globalThis.YTFrameCore;
 
 function move(arr, from, to) {
   if (to < 0 || to >= arr.length) return arr;
@@ -447,135 +447,241 @@ els.outputStrip.addEventListener('keydown', (ev) => {
 });
 
 // ---------------------------------------------------------------------------
-// Strip drag-to-reorder (uses bounding rects for reliable detection)
+// Strip drag-to-reorder
+//
+// Design notes:
+// - The drop target lives in `stripDragState`, never in DOM classes, so
+//   pointerup can't read a stale/half-cleared indicator.
+// - Frames are re-queried by id on every move. renderStrip() may run
+//   mid-drag (auto-capture appends frames); indices before the dragged
+//   frame are stable, element references are not.
+// - Pointer capture goes to the strip container, which is also where the
+//   listeners live, so capture doesn't depend on the grip staying hittable.
+// - Near the top/bottom edge the strip auto-scrolls on a rAF loop and the
+//   target is recomputed from the last known pointer position.
 // ---------------------------------------------------------------------------
+const STRIP_DRAG_THRESHOLD = 5;
+const STRIP_EDGE_ZONE = 48;
+const STRIP_EDGE_MAX_SPEED = 20;
+
+function stripFrameById(id) {
+  return els.outputStrip.querySelector(`.strip-frame[data-id="${id}"]`);
+}
+
+// The strip itself is `overflow: auto` but `.app` is min-height: 100vh, so in
+// practice the document scrolls. Resolve whichever ancestor really scrolls.
+function stripScrollParent() {
+  let el = els.outputStrip;
+  while (el && el !== document.body) {
+    const { overflowY } = getComputedStyle(el);
+    if ((overflowY === 'auto' || overflowY === 'scroll') && el.scrollHeight > el.clientHeight + 1) return el;
+    el = el.parentElement;
+  }
+  return document.scrollingElement || document.documentElement;
+}
+
+function stripScrollerBounds(scroller) {
+  if (scroller === document.scrollingElement || scroller === document.documentElement) {
+    return { top: 0, bottom: window.innerHeight };
+  }
+  const rect = scroller.getBoundingClientRect();
+  return { top: rect.top, bottom: rect.bottom };
+}
+
+function stripDragBegin(state) {
+  state.started = true;
+  state.scroller = stripScrollParent();
+  els.outputStrip.classList.add('is-dragging');
+  document.body.classList.add('strip-dragging');
+
+  // Ghost: a scaled clone of the cropped thumbnail that follows the pointer.
+  const frame = stripFrameById(state.fromId);
+  const cropView = frame?.querySelector('.strip-frame__crop-view');
+  const ghost = document.createElement('div');
+  ghost.className = 'strip-drag-ghost';
+  if (cropView) ghost.appendChild(cropView.cloneNode(true));
+  const badge = document.createElement('span');
+  badge.className = 'strip-drag-ghost__badge';
+  ghost.appendChild(badge);
+  const frameWidth = frame?.getBoundingClientRect().width || 200;
+  ghost.style.width = `${Math.min(220, Math.max(120, Math.round(frameWidth * 0.45)))}px`;
+  document.body.appendChild(ghost);
+  state.ghost = ghost;
+  state.badge = badge;
+
+  // Drop indicator: one line, repositioned rather than re-created.
+  const inner = document.getElementById('stripInner');
+  const indicator = document.createElement('div');
+  indicator.className = 'strip-drop-indicator';
+  indicator.hidden = true;
+  (inner || els.outputStrip).appendChild(indicator);
+  state.indicator = indicator;
+}
+
+function stripDragPositionGhost(state) {
+  if (!state.ghost) return;
+  // Offset so the pointer sits just inside the ghost's top-left, where the grip was.
+  state.ghost.style.transform = `translate3d(${Math.round(state.pointerX - 14)}px, ${Math.round(state.pointerY - 14)}px, 0)`;
+}
+
+function stripDragUpdateTarget(state) {
+  const frameEls = $$('.strip-frame', els.outputStrip);
+  const fromEl = frameEls.find((el) => el.dataset.id === state.fromId);
+  if (!fromEl) return false; // frame vanished (skipped/cleared) — caller cancels
+
+  const fromIndex = Number(fromEl.dataset.index);
+  if (fromEl !== state.frame) {
+    // Re-rendered mid-drag: re-apply the dragging state to the new element.
+    state.frame?.classList.remove('dragging');
+    fromEl.classList.add('dragging');
+    state.frame = fromEl;
+    if (state.indicator && !state.indicator.isConnected) {
+      (document.getElementById('stripInner') || els.outputStrip).appendChild(state.indicator);
+    }
+  }
+  state.fromIndex = fromIndex;
+
+  const slots = frameEls.map((el) => {
+    const rect = el.getBoundingClientRect();
+    return { index: Number(el.dataset.index), top: rect.top, bottom: rect.bottom };
+  });
+  const target = stripDropTarget(slots, fromIndex, state.pointerY);
+  state.insertionIndex = target.insertionIndex;
+  state.moves = target.moves;
+
+  // Indicator line at the gap the frame would slide into.
+  if (state.indicator) {
+    if (target.moves && target.boundaryY != null) {
+      const host = state.indicator.parentElement;
+      const hostTop = host.getBoundingClientRect().top;
+      state.indicator.style.transform = `translateY(${Math.round(target.boundaryY - hostTop)}px)`;
+      state.indicator.hidden = false;
+    } else {
+      state.indicator.hidden = true;
+    }
+  }
+
+  // Badge: where the frame will land, or its current slot if nothing changes.
+  if (state.badge) {
+    const finalIndex = target.moves
+      ? (target.insertionIndex > fromIndex ? target.insertionIndex - 1 : target.insertionIndex)
+      : fromIndex;
+    const pos = String(finalIndex + 1).padStart(2, '0');
+    state.badge.textContent = target.moves ? `→ #${pos}` : `#${pos}`;
+    state.badge.classList.toggle('is-noop', !target.moves);
+  }
+  return true;
+}
+
+function stripDragTick() {
+  const state = stripDragState;
+  if (!state || !state.started) return;
+  const scroller = state.scroller;
+  const { top, bottom } = stripScrollerBounds(scroller);
+  const v = edgeScrollVelocity(state.pointerY, top, bottom, STRIP_EDGE_ZONE, STRIP_EDGE_MAX_SPEED);
+  if (v !== 0) {
+    const before = scroller.scrollTop;
+    scroller.scrollTop = before + v;
+    if (scroller.scrollTop !== before) stripDragUpdateTarget(state);
+  }
+  state.raf = requestAnimationFrame(stripDragTick);
+}
+
+function stripDragFinish(commit) {
+  const state = stripDragState;
+  if (!state) return null;
+  stripDragState = null;
+
+  if (state.raf) cancelAnimationFrame(state.raf);
+  state.frame?.classList.remove('dragging');
+  state.ghost?.remove();
+  state.indicator?.remove();
+  els.outputStrip.classList.remove('is-dragging');
+  document.body.classList.remove('strip-dragging');
+  window.removeEventListener('keydown', stripDragOnKeydown, true);
+  try { els.outputStrip.releasePointerCapture(state.pointerId); } catch { /* already released */ }
+
+  if (!commit || !state.started || !state.moves) return null;
+  return { fromIndex: state.fromIndex, insertionIndex: state.insertionIndex, id: state.fromId };
+}
+
+function stripDragOnKeydown(ev) {
+  if (ev.key === 'Escape' && stripDragState) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    stripDragFinish(false);
+  }
+}
+
 els.outputStrip.addEventListener('pointerdown', (ev) => {
+  if (stripDragState || (ev.pointerType === 'mouse' && ev.button !== 0)) return;
   const grip = ev.target.closest('.strip-frame__grip');
   if (!grip) return;
   const frame = grip.closest('.strip-frame');
-  if (!frame) return;
+  if (!frame || !frame.dataset.id) return;
   ev.preventDefault();
-  const idx = Number(frame.dataset.index);
-  
-  // Cache all frame rects for reliable hit testing during drag
-  const frameEls = $$('.strip-frame', els.outputStrip);
-  const rects = frameEls.map((f) => ({
-    el: f,
-    index: Number(f.dataset.index),
-    rect: f.getBoundingClientRect(),
-  }));
-  
+
   stripDragState = {
-    fromIndex: idx,
+    pointerId: ev.pointerId,
+    fromId: frame.dataset.id,
+    fromIndex: Number(frame.dataset.index),
     startX: ev.clientX,
     startY: ev.clientY,
-    moved: false,
+    pointerX: ev.clientX,
+    pointerY: ev.clientY,
+    started: false,
+    moves: false,
+    insertionIndex: null,
     frame,
-    rects,
+    ghost: null,
+    badge: null,
+    indicator: null,
+    raf: 0,
   };
   frame.classList.add('dragging');
-  grip.setPointerCapture(ev.pointerId);
+  els.outputStrip.setPointerCapture(ev.pointerId);
+  window.addEventListener('keydown', stripDragOnKeydown, true);
 });
 
 els.outputStrip.addEventListener('pointermove', (ev) => {
-  if (!stripDragState) return;
-  const distance = Math.hypot(ev.clientX - stripDragState.startX, ev.clientY - stripDragState.startY);
-  if (distance < 5) return;
-  stripDragState.moved = true;
-  
-  // Clear all indicators
-  $$('.strip-frame', els.outputStrip).forEach((f) => {
-    f.classList.remove('drop-before', 'drop-after');
-  });
-  
-  // Refresh all rects
-  const cursorY = ev.clientY;
-  for (const info of stripDragState.rects) {
-    info.rect = info.el.getBoundingClientRect();
+  const state = stripDragState;
+  if (!state || ev.pointerId !== state.pointerId) return;
+  state.pointerX = ev.clientX;
+  state.pointerY = ev.clientY;
+
+  if (!state.started) {
+    if (Math.hypot(ev.clientX - state.startX, ev.clientY - state.startY) < STRIP_DRAG_THRESHOLD) return;
+    stripDragBegin(state);
+    state.raf = requestAnimationFrame(stripDragTick);
   }
-  
-  // Get non-dragged frames sorted by vertical position
-  const others = stripDragState.rects
-    .filter((info) => info.index !== stripDragState.fromIndex)
-    .sort((a, b) => a.rect.top - b.rect.top);
-  
-  if (others.length === 0) return;
-  
-  let targetInfo = null;
-  let position = 'before';
-  
-  // Find which frame the cursor is over
-  for (const info of others) {
-    if (cursorY >= info.rect.top && cursorY <= info.rect.bottom) {
-      targetInfo = info;
-      // 60/40 threshold: top 60% = "before", bottom 40% = "after"
-      const threshold = info.rect.top + info.rect.height * 0.6;
-      position = cursorY < threshold ? 'before' : 'after';
-      break;
-    }
-  }
-  
-  // If cursor is above all frames, drop before the first one
-  if (!targetInfo && cursorY < others[0].rect.top) {
-    targetInfo = others[0];
-    position = 'before';
-  }
-  
-  // If cursor is below all frames, drop after the last one
-  if (!targetInfo && cursorY > others[others.length - 1].rect.bottom) {
-    targetInfo = others[others.length - 1];
-    position = 'after';
-  }
-  
-  // If cursor is between two frames (in a gap), find the nearest
-  if (!targetInfo) {
-    let bestDist = Infinity;
-    for (const info of others) {
-      const distToTop = Math.abs(cursorY - info.rect.top);
-      const distToBot = Math.abs(cursorY - info.rect.bottom);
-      const minDist = Math.min(distToTop, distToBot);
-      if (minDist < bestDist) {
-        bestDist = minDist;
-        targetInfo = info;
-        position = distToTop < distToBot ? 'before' : 'after';
-      }
-    }
-  }
-  
-  if (targetInfo) targetInfo.el.classList.add(`drop-${position}`);
+
+  stripDragPositionGhost(state);
+  if (!stripDragUpdateTarget(state)) stripDragFinish(false);
 });
 
 els.outputStrip.addEventListener('pointerup', async (ev) => {
-  if (!stripDragState) return;
-  const state = stripDragState;
-  stripDragState = null;
-  state.frame.classList.remove('dragging');
-  
-  const dropTarget = $('.strip-frame.drop-before, .strip-frame.drop-after', els.outputStrip);
-  const position = dropTarget?.classList.contains('drop-before') ? 'before' : 'after';
-  $$('.strip-frame', els.outputStrip).forEach((f) => {
-    f.classList.remove('drop-before', 'drop-after');
-  });
-  
-  if (!state.moved || !dropTarget) return;
-  
-  const targetIdx = Number(dropTarget.dataset.index);
-  let insertIdx = position === 'before' ? targetIdx : targetIdx + 1;
-  
-  if (insertIdx !== state.fromIndex) {
-    const next = reorderByInsertion(frames, state.fromIndex, insertIdx);
-    await updateFrames(next);
+  if (!stripDragState || ev.pointerId !== stripDragState.pointerId) return;
+  const result = stripDragFinish(true);
+  if (!result) return;
+
+  const next = reorderByInsertion(frames, result.fromIndex, result.insertionIndex);
+  if (next === frames) return;
+  await updateFrames(next);
+
+  // Confirm where it landed.
+  const landed = stripFrameById(result.id);
+  if (landed) {
+    landed.classList.add('dropped');
+    landed.addEventListener('animationend', () => landed.classList.remove('dropped'), { once: true });
+    landed.scrollIntoView({ block: 'nearest' });
   }
 });
 
-els.outputStrip.addEventListener('pointercancel', () => {
-  if (stripDragState) {
-    stripDragState.frame.classList.remove('dragging');
-    stripDragState = null;
-  }
-  $$('.strip-frame', els.outputStrip).forEach((f) => {
-    f.classList.remove('drop-before', 'drop-after');
-  });
+els.outputStrip.addEventListener('pointercancel', (ev) => {
+  if (stripDragState && ev.pointerId === stripDragState.pointerId) stripDragFinish(false);
+});
+els.outputStrip.addEventListener('lostpointercapture', (ev) => {
+  if (stripDragState && ev.pointerId === stripDragState.pointerId) stripDragFinish(false);
 });
 
 // ---------------------------------------------------------------------------

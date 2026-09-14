@@ -202,7 +202,7 @@ button .pixi { filter: drop-shadow(1px 1px 0 rgba(0,0,0,.35)); }
 /* ─── Output strip ───────────────────────────────────────────────────────── */
 .output-strip { flex: 1; overflow: auto; padding: 0; display: none; }
 .output-strip.active { display: block; }
-.output-strip-inner { transform-origin: top left; }
+.output-strip-inner { transform-origin: top left; position: relative; }
 
 /* Watermark */
 .strip-watermark {
@@ -225,9 +225,62 @@ button .pixi { filter: drop-shadow(1px 1px 0 rgba(0,0,0,.35)); }
 .strip-frame:hover { outline-color: var(--accent-20); }
 .strip-frame:last-child { border-bottom: 1px solid var(--line-soft); margin-bottom: 16px; }
 .strip-frame:first-child { border-top: 1px solid var(--line-soft); }
-.strip-frame.dragging { opacity: .25; pointer-events: none; }
-.strip-frame.drop-before { box-shadow: inset 0 2px 0 0 var(--accent); }
-.strip-frame.drop-after { box-shadow: inset 0 -2px 0 0 var(--accent); }
+/* Drag-to-reorder states */
+.strip-frame.dragging {
+  opacity: .3; pointer-events: none;
+  outline: 1px dashed var(--accent-60);
+  filter: saturate(.6);
+}
+.output-strip.is-dragging { cursor: grabbing; user-select: none; }
+.output-strip.is-dragging * { cursor: grabbing !important; }
+.output-strip.is-dragging .strip-frame:not(.dragging) .strip-frame__overlay { opacity: 0; }
+.output-strip.is-dragging .strip-frame:hover { outline-color: transparent; }
+body.strip-dragging { cursor: grabbing; }
+
+/* Drop indicator: one line at the gap the frame will slide into */
+.strip-drop-indicator {
+  position: absolute; left: 0; right: 0; top: -1px; height: 2px;
+  background: var(--accent); z-index: 5; pointer-events: none;
+  box-shadow: 0 0 0 1px rgba(12,10,9,.6), 0 0 8px var(--accent-60);
+  transition: transform 120ms var(--ease-snap);
+}
+.strip-drop-indicator::before {
+  content: ""; position: absolute; left: -1px; top: -3px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 0 2px var(--bg);
+}
+
+/* Floating thumbnail that follows the pointer */
+.strip-drag-ghost {
+  position: fixed; left: 0; top: 0; z-index: 1000;
+  pointer-events: none; will-change: transform;
+  border-radius: 2px; overflow: hidden;
+  outline: 1px solid rgba(255,255,255,.18);
+  box-shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 28px rgba(0,0,0,.55);
+  background: var(--panel);
+  animation: strip-ghost-in 140ms var(--ease-out) both;
+}
+.strip-drag-ghost .strip-frame__crop-view img { outline: none; }
+.strip-drag-ghost__badge {
+  position: absolute; left: 4px; top: 4px;
+  padding: 1px 6px; border-radius: 2px;
+  font-size: 10px; font-weight: 600; letter-spacing: .02em;
+  font-variant-numeric: tabular-nums;
+  color: #fff; background: var(--accent);
+  border: 1px solid rgba(255,255,255,.25);
+}
+.strip-drag-ghost__badge.is-noop { background: rgba(12,10,9,.85); color: var(--muted); }
+@keyframes strip-ghost-in {
+  from { opacity: 0; scale: .92; }
+  to   { opacity: 1; scale: 1; }
+}
+
+/* Post-drop confirmation on the frame that moved */
+.strip-frame.dropped { animation: strip-dropped 520ms var(--ease-out) both; }
+@keyframes strip-dropped {
+  0%   { outline-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent-60); }
+  100% { outline-color: transparent; box-shadow: none; }
+}
 
 /* Crop view — image with subtle outline (dark mode: white at 10%) */
 .strip-frame__crop-view {
