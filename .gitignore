@@ -5,3 +5,10 @@
 node_modules/
 package-lock.json
 codedb.snapshot
+
+# Agent tooling / local session state
+.graff/
+.harness/
+
+# Coverage artifacts
+*.profraw
