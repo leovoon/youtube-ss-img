@@ -261,8 +261,9 @@ function renderStrip() {
     const timeStr = formatTime(f.time);
     const caption = f.captionText ? escapeHtml(f.captionText) : '';
     
-    const aspectH = 9 * keptRatio;
-    const aspectRatio = `16 / ${aspectH}`;
+    const frameWidth = f.width > 0 ? f.width : 16;
+    const frameHeight = f.height > 0 ? f.height : 9;
+    const aspectRatio = `${frameWidth} / ${frameHeight * keptRatio}`;
     const imgTopPct = -(cropTop / keptRatio) * 100;
     
     const showWatermark = watermark && i === frames.length - 1;
@@ -413,7 +414,7 @@ els.outputStrip.addEventListener('click', async (ev) => {
   const keptRatio = Math.max(0.05, 1 - cropTop - cropBottom);
   const cropView = frame.querySelector('.strip-frame__crop-view');
   if (cropView) {
-    cropView.style.aspectRatio = `16 / ${9 * keptRatio}`;
+    cropView.style.aspectRatio = `${f.width > 0 ? f.width : 16} / ${(f.height > 0 ? f.height : 9) * keptRatio}`;
     const img = cropView.querySelector('img');
     if (img) {
       img.style.top = `${-(cropTop / keptRatio) * 100}%`;
@@ -551,6 +552,7 @@ els.outputStrip.addEventListener('pointerup', async (ev) => {
   state.frame.classList.remove('dragging');
   
   const dropTarget = $('.strip-frame.drop-before, .strip-frame.drop-after', els.outputStrip);
+  const position = dropTarget?.classList.contains('drop-before') ? 'before' : 'after';
   $$('.strip-frame', els.outputStrip).forEach((f) => {
     f.classList.remove('drop-before', 'drop-after');
   });
@@ -558,7 +560,6 @@ els.outputStrip.addEventListener('pointerup', async (ev) => {
   if (!state.moved || !dropTarget) return;
   
   const targetIdx = Number(dropTarget.dataset.index);
-  const position = dropTarget.classList.contains('drop-before') ? 'before' : 'after';
   let insertIdx = position === 'before' ? targetIdx : targetIdx + 1;
   
   if (insertIdx !== state.fromIndex) {
