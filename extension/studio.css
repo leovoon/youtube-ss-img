@@ -263,7 +263,9 @@ body.strip-dragging { cursor: grabbing; }
   background: var(--panel);
   animation: strip-ghost-in 140ms var(--ease-out) both;
 }
-.strip-drag-ghost .strip-frame__crop-view img { outline: none; }
+/* The crop-window outline now lives on `.strip-frame__crop-view::after`, so the
+   ghost has to silence that rather than an outline on the img. */
+.strip-drag-ghost .strip-frame__crop-view::after { box-shadow: none; }
 .strip-drag-ghost__badge {
   position: absolute; left: 4px; top: 4px;
   padding: 1px 6px; border-radius: 2px;

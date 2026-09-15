@@ -261,7 +261,13 @@ function renderStrip() {
   }
 
   const existing = new Map();
-  for (const el of inner.children) existing.set(el.dataset.id, el);
+  for (const el of inner.children) {
+    // Only frame nodes participate. Transient children — the drag drop
+    // indicator, appended here by stripDragBegin — carry no frame id, and
+    // treating them as stale deleted the gap line on the first render that
+    // landed mid-drag.
+    if (el.dataset.id) existing.set(el.dataset.id, el);
+  }
 
   frames.forEach((f, i) => {
     let el = existing.get(f.id);
@@ -607,13 +613,19 @@ function stripDragUpdateTarget(state) {
 
   const fromIndex = Number(fromEl.dataset.index);
   if (fromEl !== state.frame) {
-    // Re-rendered mid-drag: re-apply the dragging state to the new element.
+    // Re-rendered onto a fresh element: re-apply the dragging state to it.
     state.frame?.classList.remove('dragging');
     fromEl.classList.add('dragging');
     state.frame = fromEl;
-    if (state.indicator && !state.indicator.isConnected) {
-      (document.getElementById('stripInner') || els.outputStrip).appendChild(state.indicator);
-    }
+  }
+  // A render that happens mid-drag (an auto-capture tick, a storage echo) drops
+  // the indicator: it is a child of #stripInner with no frame id, so the keyed
+  // reconciliation treats it as stale and removes it. The frame node survives
+  // that pass, so this cannot be folded into the branch above — re-attach it
+  // whenever it has come apart, or the gap line disappears for the rest of the
+  // drag and the transform below reads a null parent.
+  if (state.indicator && !state.indicator.isConnected) {
+    (document.getElementById('stripInner') || els.outputStrip).appendChild(state.indicator);
   }
   state.fromIndex = fromIndex;
 
