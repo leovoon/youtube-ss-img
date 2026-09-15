@@ -282,16 +282,29 @@ body.strip-dragging { cursor: grabbing; }
   100% { outline-color: transparent; box-shadow: none; }
 }
 
-/* Crop view — image with subtle outline (dark mode: white at 10%) */
+/* Crop view — a fixed-aspect window (height from `aspect-ratio`, set inline
+   per frame) over an absolutely positioned image whose top/height are also
+   set inline as percentages of the window. The image box is fully determined
+   by CSS before the bitmap decodes, so subtitle bands never shift or flicker
+   when a frame is (re)rendered. */
 .strip-frame__crop-view {
   width: 100%; overflow: hidden; position: relative;
+  background: var(--panel);
+  contain: layout paint;
 }
 .strip-frame__crop-view img {
-  display: block; width: 100%; height: auto;
+  display: block; position: absolute; left: 0; top: 0;
+  width: 100%; height: 100%;
   user-select: none; -webkit-user-drag: none;
-  pointer-events: none; position: relative;
-  outline: 1px solid oklch(1 0 0 / 0.1);
-  outline-offset: -1px;
+  pointer-events: none;
+  backface-visibility: hidden;
+}
+/* Subtle outline (dark mode: white at 10%) drawn on the window rather than
+   the image, so it stays visible when the image extends past the crop. */
+.strip-frame__crop-view::after {
+  content: ""; position: absolute; inset: 0;
+  box-shadow: inset 0 0 0 1px oklch(1 0 0 / 0.1);
+  pointer-events: none;
 }
 
 /* Overlay — hidden by default, revealed on hover */

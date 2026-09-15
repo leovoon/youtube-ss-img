@@ -494,15 +494,8 @@ els.outputStrip.addEventListener('click', async (ev) => {
   if (botVal) botVal.textContent = `${Math.round(cropBottom * 100)}%`;
   
   // Update the image position live
-  const keptRatio = Math.max(0.05, 1 - cropTop - cropBottom);
   const cropView = frame.querySelector('.strip-frame__crop-view');
-  if (cropView) {
-    cropView.style.aspectRatio = `${f.width > 0 ? f.width : 16} / ${(f.height > 0 ? f.height : 9) * keptRatio}`;
-    const img = cropView.querySelector('img');
-    if (img) {
-      img.style.top = `${-(cropTop / keptRatio) * 100}%`;
-    }
-  }
+  if (cropView) applyCropGeometry(cropView, f, cropTop, cropBottom);
   
   scheduleExport();
 });
