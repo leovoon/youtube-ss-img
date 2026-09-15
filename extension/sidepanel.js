@@ -776,17 +776,17 @@ async function captureAndStore({ auto = false } = {}) {
       }
       autoVideoId ||= response.videoId;
     }
-    let next = await appendCapture(response);
-    // Apply default preset type and bake in crop values at capture time
+    // Bake the preset type + crop in before the frame is first persisted, so
+    // it never exists (or renders) as a full-height scene that then shrinks
+    // to a subtitle band. That intermediate state toggled the scrollbar and
+    // shifted the strip for a frame on every capture.
     const defaultType = $('#defaultCaptureType')?.value || 'subtitle';
     const defaultCrop = getDefaultCrop(defaultType);
-    if (next.length > 0) {
-      next = next.map((f, i) => i === next.length - 1
-        ? { ...f, type: defaultType, cropTop: defaultCrop.top, cropBottom: defaultCrop.bottom }
-        : f);
-    }
-    frames = next;
-    await saveFrames(frames);
+    frames = await appendCapture(response, {
+      type: defaultType,
+      cropTop: defaultCrop.top,
+      cropBottom: defaultCrop.bottom,
+    });
     renderStrip();
     scheduleExport();
     setStatus(`Captured #${frames.length}`, 'ok');

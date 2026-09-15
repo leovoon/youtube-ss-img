@@ -137,8 +137,12 @@ export async function captureFrame() {
   return response;
 }
 
-// Append a captured frame to storage, classifying it. Returns the frame list.
-export async function appendCapture(response) {
+// Append a captured frame to storage. Returns the frame list.
+// `preset` lets the caller bake in the final type/crop so the frame is
+// persisted (and therefore first rendered) in its final shape. Saving it as a
+// full-height keyframe and re-typing it to a subtitle band a moment later made
+// the strip grow then shrink, flashing the scrollbar and shifting the layout.
+export async function appendCapture(response, preset = {}) {
   const frames = await loadFrames();
   if (frames.length >= MAX_FRAMES) {
     throw new Error(`Frame limit (${MAX_FRAMES}) reached. Clear some frames first.`);
@@ -153,7 +157,9 @@ export async function appendCapture(response) {
       videoId: response.videoId || null,
       captionText: response.captionText || '',
       hasBakedCaption: Boolean(response.hasCaption),
-    type: 'keyframe',
+      type: preset.type === 'subtitle' || preset.type === 'keyframe' ? preset.type : 'keyframe',
+      cropTop: preset.cropTop,
+      cropBottom: preset.cropBottom,
       capturedAt: Date.now(),
     },
     frames.length
