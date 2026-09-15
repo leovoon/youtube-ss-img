@@ -393,17 +393,7 @@ function frameOverlayMarkup(f, i, cropTop, cropBottom) {
           <button class="strip-act" data-action="duplicate" title="Duplicate frame">${ICON('duplicate', 10)}</button>
           <button class="strip-act strip-act--danger" data-action="skip" title="Skip">${ICON('remove', 10)}</button>
         </div>
-        ${caption && !f.hasBakedCaption ? `<div class="strip-frame__caption" contenteditable="true" data-caption-id="${f.id}" data-placeholder="Add caption…">${caption}</div>` : ''}
-      </div>
-    </div>`;
-  });
-  
-  html += '</div>';
-  els.outputStrip.innerHTML = html;
-  
-  // Apply zoom via width scaling (reliable across browsers)
-  const inner = document.getElementById('stripInner');
-  if (inner) inner.style.width = `${previewZoom * 100}%`;
+        ${caption && !f.hasBakedCaption ? `<div class="strip-frame__caption" contenteditable="true" data-caption-id="${f.id}" data-placeholder="Add caption…">${caption}</div>` : ''}`;
 }
 
 // ---------------------------------------------------------------------------
