@@ -245,37 +245,130 @@ function renderStrip() {
   els.emptyState.hidden = true;
   els.outputStrip.classList.add('active');
   
-  // Watermark
   const watermark = $('#stackWatermark').value.trim();
-  
-  let html = '<div class="output-strip-inner" id="stripInner">';
-  
+
+  // Keyed reconciliation: reuse each frame's node (and its already-decoded
+  // <img>) by id instead of rebuilding the strip from an HTML string. A full
+  // rebuild re-decoded every data-URL image on each capture/edit, which is
+  // what made subtitle bands blink and jump into place.
+  let inner = document.getElementById('stripInner');
+  if (!inner) {
+    els.outputStrip.textContent = '';
+    inner = document.createElement('div');
+    inner.className = 'output-strip-inner';
+    inner.id = 'stripInner';
+    els.outputStrip.appendChild(inner);
+  }
+
+  const existing = new Map();
+  for (const el of inner.children) existing.set(el.dataset.id, el);
+
   frames.forEach((f, i) => {
-    const pos = String(i + 1).padStart(2, '0');
-    const defaults = getDefaultCrop(f.type);
-    const cropTop = typeof f.cropTop === 'number' ? f.cropTop : defaults.top;
-    const cropBottom = typeof f.cropBottom === 'number' ? f.cropBottom : defaults.bottom;
-    const keptRatio = Math.max(0.05, 1 - cropTop - cropBottom);
-    const topPct = Math.round(cropTop * 100);
-    const bottomPct = Math.round(cropBottom * 100);
-    const timeStr = formatTime(f.time);
-    const caption = f.captionText ? escapeHtml(f.captionText) : '';
-    
-    const frameWidth = f.width > 0 ? f.width : 16;
-    const frameHeight = f.height > 0 ? f.height : 9;
-    const aspectRatio = `${frameWidth} / ${frameHeight * keptRatio}`;
-    const imgTopPct = -(cropTop / keptRatio) * 100;
-    
-    const showWatermark = watermark && i === frames.length - 1;
-    const hasCrop = typeof f.cropTop === 'number' || typeof f.cropBottom === 'number';
-    
-    html += `<div class="strip-frame" data-index="${i}" data-id="${f.id}" data-type="${f.type}">
-      <div class="strip-frame__crop-view" style="aspect-ratio: ${aspectRatio};">
-        <img src="${f.url}" alt="Frame ${pos}" style="position:absolute;top:${imgTopPct}%;width:100%;height:auto;">
-      </div>
-      ${showWatermark ? `<div class="strip-watermark">${escapeHtml(watermark)}</div>` : ''}
-      <div class="strip-frame__overlay">
-        <div class="strip-frame__top">
+    let el = existing.get(f.id);
+    if (el) existing.delete(f.id);
+    else el = createStripFrame(f);
+    updateStripFrame(el, f, i, watermark);
+    const current = inner.children[i];
+    if (current !== el) inner.insertBefore(el, current || null);
+  });
+  existing.forEach((el) => el.remove());
+
+  // Apply zoom via width scaling (reliable across browsers)
+  inner.style.width = `${previewZoom * 100}%`;
+}
+
+// Resolve a frame's crop, falling back to the type defaults from the inputs.
+function effectiveCrop(f) {
+  const defaults = getDefaultCrop(f.type);
+  return {
+    cropTop: typeof f.cropTop === 'number' ? f.cropTop : defaults.top,
+    cropBottom: typeof f.cropBottom === 'number' ? f.cropBottom : defaults.bottom,
+  };
+}
+
+// Crop-window geometry. Everything is expressed relative to the crop-view box
+// (whose height comes from `aspect-ratio`), so the image's rendered size and
+// offset are fixed by CSS before the bitmap decodes:
+//   view height  = W * (h * kept) / w
+//   image height = view height / kept = W * h / w   (natural aspect)
+//   image top    = -(cropTop / kept) * view height = -cropTop * image height
+// Previously the image used `height:auto`, so the band only settled once the
+// intrinsic size was known, causing a visible shift on every (re)render.
+function cropGeometry(f, cropTop, cropBottom) {
+  const keptRatio = Math.max(0.05, 1 - cropTop - cropBottom);
+  const frameWidth = f.width > 0 ? f.width : 16;
+  const frameHeight = f.height > 0 ? f.height : 9;
+  return {
+    aspectRatio: `${frameWidth} / ${frameHeight * keptRatio}`,
+    imgTop: `${-(cropTop / keptRatio) * 100}%`,
+    imgHeight: `${(1 / keptRatio) * 100}%`,
+  };
+}
+
+function applyCropGeometry(cropView, f, cropTop, cropBottom) {
+  const g = cropGeometry(f, cropTop, cropBottom);
+  cropView.style.aspectRatio = g.aspectRatio;
+  const img = cropView.querySelector('img');
+  if (img) {
+    img.style.top = g.imgTop;
+    img.style.height = g.imgHeight;
+  }
+}
+
+function createStripFrame(f) {
+  const el = document.createElement('div');
+  el.className = 'strip-frame';
+  el.dataset.id = f.id;
+  const cropView = document.createElement('div');
+  cropView.className = 'strip-frame__crop-view';
+  const img = document.createElement('img');
+  img.decoding = 'async';
+  img.draggable = false;
+  cropView.appendChild(img);
+  const overlay = document.createElement('div');
+  overlay.className = 'strip-frame__overlay';
+  el.append(cropView, overlay);
+  return el;
+}
+
+function updateStripFrame(el, f, i, watermark) {
+  const { cropTop, cropBottom } = effectiveCrop(f);
+  el.dataset.index = String(i);
+  el.dataset.type = f.type;
+
+  const cropView = el.querySelector('.strip-frame__crop-view');
+  const img = cropView.querySelector('img');
+  if (img.getAttribute('src') !== f.url) img.src = f.url;
+  img.alt = `Frame ${String(i + 1).padStart(2, '0')}`;
+  applyCropGeometry(cropView, f, cropTop, cropBottom);
+
+  let wm = el.querySelector('.strip-watermark');
+  if (watermark && i === frames.length - 1) {
+    if (!wm) {
+      wm = document.createElement('div');
+      wm.className = 'strip-watermark';
+      cropView.after(wm);
+    }
+    wm.textContent = watermark;
+  } else if (wm) {
+    wm.remove();
+  }
+
+  // Controls are cheap to rebuild (no images). Skip while a caption inside
+  // this frame is being edited so a background refresh can't steal focus.
+  const overlay = el.querySelector('.strip-frame__overlay');
+  if (!overlay.contains(document.activeElement)) {
+    overlay.innerHTML = frameOverlayMarkup(f, i, cropTop, cropBottom);
+  }
+}
+
+function frameOverlayMarkup(f, i, cropTop, cropBottom) {
+  const pos = String(i + 1).padStart(2, '0');
+  const topPct = Math.round(cropTop * 100);
+  const bottomPct = Math.round(cropBottom * 100);
+  const timeStr = formatTime(f.time);
+  const caption = f.captionText ? escapeHtml(f.captionText) : '';
+  return `<div class="strip-frame__top">
           <span class="strip-frame__grip" data-grip="${i}">⠿</span>
           <span class="strip-frame__pos">#${pos}</span>
           ${timeStr && f.videoId ? `<span class="strip-frame__pos strip-frame__time-link" data-action="seek-time" data-video-id="${f.videoId}" data-time="${f.time}" role="button" tabindex="0" title="Jump to ${timeStr}">${timeStr}</span>` : (timeStr ? `<span class="strip-frame__pos">${timeStr}</span>` : '')}
