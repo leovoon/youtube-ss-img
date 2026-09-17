@@ -102,9 +102,23 @@ Do not refactor unrelated areas because you noticed them.
 
 ## Build and release
 
-The build is `node build.js` from the repo root. It runs `wasm-pack` and
-packages `extension/` into `release/youtube-frame-grab-alpha-v0.<X>.zip`.
-Version bumps live in `Cargo.toml`; the build script reads it.
+The Chrome extension is built with [WXT](https://wxt.dev) from the repo root:
+
+```sh
+npm install        # runs `wxt prepare`
+npm run dev        # HMR dev build
+npm run build      # -> .output/chrome-mv3/
+npm run zip        # -> .output/<name>-<version>-chrome.zip
+npm test           # node --test extension/core.test.js
+```
+
+WXT's `srcDir` is `extension/` (the repo's `src/` is the Rust crate). Entry
+points live in `extension/entrypoints/`, static assets in `extension/public/`.
+`manifest.json` is generated; manifest overrides belong in `wxt.config.ts`,
+not in a checked-in manifest. The extension version is `package.json#version`.
+
+Keep `extension/core.js` free of `chrome.*` and DOM access; it is the only
+module with host-run unit tests.
 
 ## Pointer back to the entrypoint
 

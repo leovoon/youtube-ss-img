@@ -1,3 +1,5 @@
+import { defineBackground } from '#imports';
+
 const FRAMES_STORAGE_KEY = 'youtube-frame-grab.frames';
 const MAX_FRAMES = 200;
 
@@ -29,23 +31,25 @@ function appendFrame(response) {
   });
 }
 
-// Open the side panel directly when the toolbar icon is clicked.
-if (chrome.sidePanel?.setPanelBehavior) {
-  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
-}
+export default defineBackground(() => {
+  // Open the side panel directly when the toolbar icon is clicked.
+  if (chrome.sidePanel?.setPanelBehavior) {
+    chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+  }
 
-chrome.commands.onCommand.addListener((command) => {
-  if (command !== 'grab-frame') return;
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    const tab = tabs?.[0];
-    if (!tab?.id || !tab.url?.includes('youtube.com')) return;
-    chrome.tabs.sendMessage(tab.id, { action: 'capture-frame' }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.error(chrome.runtime.lastError.message);
-        return;
-      }
-      if (response?.ok) appendFrame(response);
-      else console.error(response?.error || 'Could not capture frame.');
+  chrome.commands.onCommand.addListener((command) => {
+    if (command !== 'grab-frame') return;
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tab = tabs?.[0];
+      if (!tab?.id || !tab.url?.includes('youtube.com')) return;
+      chrome.tabs.sendMessage(tab.id, { action: 'capture-frame' }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.error(chrome.runtime.lastError.message);
+          return;
+        }
+        if (response?.ok) appendFrame(response);
+        else console.error(response?.error || 'Could not capture frame.');
+      });
     });
   });
 });

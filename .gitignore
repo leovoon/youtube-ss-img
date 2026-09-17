@@ -1,5 +1,10 @@
 /target/
 /release/
+
+# WXT build output and generated types
+.output/
+.wxt/
+
 .DS_Store
 *.log
 node_modules/

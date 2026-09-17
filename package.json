@@ -2,10 +2,17 @@
   "name": "youtube-linestack-studio",
   "version": "0.7.1",
   "private": true,
+  "type": "module",
   "scripts": {
-    "build": "node build.js",
-    "check": "node --check extension/core.js && node --check extension/engine.js && node --check extension/store.js && node --check extension/icons.js && node --check extension/sidepanel.js && node --check extension/background.js && node --check extension/content.js",
-    "test": "node --test extension/core.test.js",
-    "package": "node build.js"
+    "postinstall": "wxt prepare",
+    "dev": "wxt",
+    "build": "wxt build",
+    "zip": "wxt zip",
+    "package": "wxt zip",
+    "check": "node --check extension/core.js && node --check extension/engine.js && node --check extension/store.js && node --check extension/icons.js && node --check extension/entrypoints/sidepanel/main.js && node --check extension/entrypoints/background.js && node --check extension/entrypoints/content.js",
+    "test": "node --test extension/core.test.js"
+  },
+  "devDependencies": {
+    "wxt": "^0.20.0"
   }
 }
