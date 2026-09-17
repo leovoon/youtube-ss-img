@@ -243,7 +243,11 @@ function renderStrip() {
   }
   
   els.emptyState.hidden = true;
-  els.outputStrip.classList.add('active');
+  // The strip is the LineStack editing surface only. renderStrip() runs on
+  // every frame mutation regardless of mode (reorder, caption, delete,
+  // capture, storage echo), so it must not undo the hide that
+  // setExportMode('collage') applied or the strip leaks under the collage.
+  els.outputStrip.classList.toggle('active', exportMode === 'linestack');
   
   const watermark = $('#stackWatermark').value.trim();
 
