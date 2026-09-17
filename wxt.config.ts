@@ -2,9 +2,8 @@ import { defineConfig } from 'wxt';
 
 // WXT (https://wxt.dev) drives the extension build.
 //
-// Layout: extension source lives under `extension/` (the repo's `src/` belongs
-// to the Rust crate), entrypoints under `extension/entrypoints/`, and static
-// assets under `extension/public/` (copied verbatim, so `icons/*.png` keep the
+// Layout: extension source lives under `extension/`, entrypoints under
+// `extension/entrypoints/`, and static assets under `extension/public/` (copied verbatim, so `icons/*.png` keep the
 // paths referenced below).
 //
 // WXT derives manifest.json from the entrypoints (background service worker,
@@ -12,6 +11,7 @@ import { defineConfig } from 'wxt';
 // `version`, and `description` fall back to package.json when not set.
 export default defineConfig({
   srcDir: 'extension',
+  publicDir: 'extension/public',
   outDir: '.output',
   browser: 'chrome',
   manifestVersion: 3,

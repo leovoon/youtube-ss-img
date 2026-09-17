@@ -1,130 +1,63 @@
 # Agent Instructions
 
-These instructions apply to every change in this repository. They are enforced
-by the Slophammer quality gates defined in `slophammer.yml` and the CI
-workflow at `.github/workflows/ci.yml`. The contract comes from the
-Slophammer entrypoint:
-
-  https://raw.githubusercontent.com/dutifuldev/slophammer/refs/heads/main/docs/AGENT_ENTRYPOINT.md
+These instructions apply to every change in this repository. Quality gates
+are defined in `.github/workflows/ci.yml`.
 
 ## Repository facts
 
-- **Language**: Rust. Crate type is `cdylib`; the artifact is a Yew UI compiled
-  to WebAssembly for a Chrome extension.
-- **Target**: `wasm32-unknown-unknown` only. The crate has no host-target
-  build and no `#[test]` functions by design.
-- **Toolchain**: Rust stable, MSRV `1.75` (see `Cargo.toml`).
-- **Slophammer-rs version pinned in CI**: `0.4.0`. Do not use `@latest`; the
-  pin lives in `.github/workflows/ci.yml` and must be bumped in one place.
+- **Language**: Plain JavaScript (ES modules) for the Chrome extension, built
+  with [WXT](https://wxt.dev). No Rust, no WASM — the legacy `src/lib.rs` and
+  `Cargo.toml` are leftovers from a previous iteration and are not built.
+- **Build output**: `.output/chrome-mv3/`; release zip via `npm run zip`.
+- **Node**: 18+ (WXT requirement). Package manager: npm, with
+  `package-lock.json` committed (CI runs `npm ci`).
 
 ## Local commands agents must run before finishing
 
 Run from the repo root:
 
 ```sh
-# Format gate
-cargo fmt --all -- --check
-
-# Lint gate (deny warnings on the WASM target)
-cargo clippy --target wasm32-unknown-unknown --all-targets -- -D warnings
-
-# Build gate
-cargo check --target wasm32-unknown-unknown
-
-# Test compile gate (WASM-only target — we cannot execute the .wasm;
-# --no-run asserts the test surface still compiles cleanly).
-cargo test --target wasm32-unknown-unknown --no-run
-
-# Slophammer structural and policy gates
-slophammer-rs dry . --format json
-slophammer-rs boundaries . --format json
-slophammer-rs unsafe . --format json
-slophammer-rs check . --format json
+npm run check      # node --check on every source file
+npm test           # node --test extension/core.test.js
+npm run build      # WXT production build -> .output/chrome-mv3/
+npm run zip        # WXT package -> .output/<name>-<version>-chrome.zip
 ```
 
-`slophammer-rs@0.4.0` must be installed locally:
-
-```sh
-cargo install slophammer-rs --locked --version 0.4.0
-```
-
-CI installs the same pinned version, so local results match CI exactly.
+CI runs the same four gates. Match them locally before pushing.
 
 ## Architecture rules
 
-- **Unsafe is forbidden.** Do not add `unsafe { ... }` blocks. The
-  `slophammer-rs unsafe .` gate enforces `policy: forbid` from `slophammer.yml`.
-  If you genuinely need unsafe, the policy must be widened deliberately, not
-  by sneaking an `unsafe` block past review.
-- **No new public dependencies without justification.** The crate already pulls
-  in `yew`, `wasm-bindgen`, `serde`, `gloo`, `web-sys`, and `js-sys`. Anything
-  new should be evaluated against the standard library and existing deps
-  first. New deps must compile on `wasm32-unknown-unknown` and add no `unsafe`
-  exposure.
-- **Keep domain logic separate from `web_sys`.** Bridge calls
-  (`Reflect::get`, `JsFuture::from`, `spawn_local`) belong in narrow functions
-  next to the UI component that needs them. Do not thread `web_sys` types into
-  pure data helpers.
+- **No new runtime dependencies without justification.** The extension is
+  plain JS; the only devDependency is `wxt`. Anything new must be evaluated
+  against the standard library and existing modules first.
+- **Keep `extension/core.js` pure.** No `chrome.*`, no DOM. It is shared by
+  the content script and the side panel and is the only module with
+  host-run unit tests (`extension/core.test.js`).
+- **WXT owns the manifest.** `manifest.json` is generated; overrides belong
+  in `wxt.config.ts` (permissions, commands, icons), never in a checked-in
+  manifest. `extension/public/` holds verbatim-copied assets (`icons/`).
+- **Entrypoints live in `extension/entrypoints/`.** Use WXT helpers
+  (`defineBackground`, `defineContentScript`, `#imports`), and import shared
+  modules (`core.js`, `engine.js`, `store.js`, `icons.js`) directly — there
+  is no `globalThis.YTFrameCore` bridge anymore.
 - **Do not weaken CI to make a change pass.** If a gate fails, fix the code.
 
 ## Testing expectations
 
-- There are no `#[test]` functions today. `cargo test` exits `0` on an empty
-  test suite, so it is wired into CI as a present-but-inactive gate.
-- When you add behavior, add a host-target test alongside it. WASM-target
-  tests are not yet wired in; keep logic that is worth testing in code paths
-  the host can call (e.g. pure-data helpers, validation, frame-rotation math)
-  and test those.
-- **Coverage and mutation are deliberately deferred.** Both require a
-  host-target build that this `cdylib` does not currently produce. Adding
-  one is a structural change and should be its own PR, not folded into a
-  feature change. The path is:
-  1. Add a small `[[bin]]` or `[[example]]` that exercises pure logic.
-  2. Wire `cargo llvm-cov --fail-under-lines 85` and a mutation runner into
-     CI.
-  Until then, the coverage and mutation rules will continue to flag in
-  `slophammer-rs check .` output, and that is the documented state of the
-  repo.
-
-## Refactoring order when a gate fails
-
-1. Add missing tests for the behavior that broke.
-2. Split high-complexity functions by responsibility. The auto-capture
-   `on_start_auto_capture` closure in `src/lib.rs` is the obvious first
-   target if `slophammer-rs` flags complexity.
-3. Move `web_sys` and `Closure` plumbing away from pure data handling.
-4. Replace repeated code with a named helper only when the helper has a
-   stable purpose.
-5. Remove dead or unused paths.
-6. Re-run the failing gate.
-
-Do not refactor unrelated areas because you noticed them.
+- `extension/core.test.js` runs under `node --test`. When you add behavior
+  to `core.js`, add tests for it there.
+- DOM/extension behavior is not unit-tested; verify entrypoint changes with
+  `npm run build` plus a manual (or Playwright-driven) load of
+  `.output/chrome-mv3` in Chromium before merging.
 
 ## Build and release
 
-The Chrome extension is built with [WXT](https://wxt.dev) from the repo root:
-
 ```sh
 npm install        # runs `wxt prepare`
-npm run dev        # HMR dev build
+npm run dev        # HMR dev build, loads unpacked
 npm run build      # -> .output/chrome-mv3/
 npm run zip        # -> .output/<name>-<version>-chrome.zip
-npm test           # node --test extension/core.test.js
 ```
 
-WXT's `srcDir` is `extension/` (the repo's `src/` is the Rust crate). Entry
-points live in `extension/entrypoints/`, static assets in `extension/public/`.
-`manifest.json` is generated; manifest overrides belong in `wxt.config.ts`,
-not in a checked-in manifest. The extension version is `package.json#version`.
-
-Keep `extension/core.js` free of `chrome.*` and DOM access; it is the only
-module with host-run unit tests.
-
-## Pointer back to the entrypoint
-
-If you are an agent and these instructions feel incomplete or wrong, the
-authoritative source is:
-
-  https://raw.githubusercontent.com/dutifuldev/slophammer/refs/heads/main/docs/AGENT_ENTRYPOINT.md
-
-Follow it. Do not invent rules the tool chain cannot check.
+The extension version is `package.json#version`; the zip name derives from
+it. Bump it there, not in any manifest.

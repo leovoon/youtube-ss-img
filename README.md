@@ -67,7 +67,7 @@ npm run check     # syntax-check all extension JS
 npm test          # unit tests for extension/core.js
 ```
 
-Layout (WXT `srcDir` is `extension/`; the repo's `src/` belongs to the Rust crate):
+Layout (WXT `srcDir` is `extension/`):
 
 ```text
 wxt.config.ts                       manifest overrides (permissions, commands, icons)

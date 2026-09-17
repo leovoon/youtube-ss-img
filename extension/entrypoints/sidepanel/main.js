@@ -1,5 +1,13 @@
-import { renderLineStack, renderCollage, clearBitmapCache } from './engine.js';
-import { icon as ICON, applyIcons, emptyStateArt } from './icons.js';
+import { renderLineStack, renderCollage, clearBitmapCache } from '../../engine.js';
+import { icon as ICON, applyIcons, emptyStateArt } from '../../icons.js';
+import {
+  canonicalYouTubeVideoId,
+  chooseActiveVideoIndex,
+  insertionIndexForPoint,
+  stripDropTarget,
+  edgeScrollVelocity,
+  reorderByInsertion,
+} from '../../core.js';
 import {
   loadFrames,
   saveFrames as writeFrames,
@@ -7,16 +15,14 @@ import {
   captureFrame,
   appendCapture,
   appendUpload,
-  onFramesChanged,
-  MAX_FRAMES,
-} from './store.js';
+  onFramesChanged, MAX_FRAMES,
+} from '../../store.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
-const { insertionIndexForPoint, stripDropTarget, edgeScrollVelocity, reorderByInsertion } = globalThis.YTFrameCore;
 
 function move(arr, from, to) {
   if (to < 0 || to >= arr.length) return arr;
