@@ -116,7 +116,9 @@ const els = {
   uploadInput: $('#uploadInput'),
   // Collage block editor
   blockEditor: $('#blockEditor'),
+  blockHead: $('#blockHead'),
   blockTitle: $('#blockTitle'),
+  blockCollapse: $('#blockCollapse'),
   blockClose: $('#blockClose'),
   blockZoom: $('#blockZoom'),
   zoomLabel: $('#zoomLabel'),
@@ -1401,6 +1403,26 @@ els.blockClose.addEventListener('click', () => {
   selectedId = null;
   syncBlockEditor();
   buildBlockOverlay();
+});
+
+// Collapse the editor down to its header so it stops covering the collage.
+// The choice persists across block selections; the DOM is static so the
+// class survives syncBlockEditor().
+let blockEditorCollapsed = false;
+function setBlockEditorCollapsed(collapsed) {
+  blockEditorCollapsed = collapsed;
+  els.blockEditor.classList.toggle('is-collapsed', collapsed);
+  els.blockCollapse.setAttribute('aria-expanded', String(!collapsed));
+  els.blockCollapse.title = collapsed ? 'Expand' : 'Collapse';
+}
+els.blockCollapse.addEventListener('click', (ev) => {
+  ev.stopPropagation();
+  setBlockEditorCollapsed(!blockEditorCollapsed);
+});
+// The title row doubles as a toggle; the action buttons opt out.
+els.blockHead.addEventListener('click', (ev) => {
+  if (ev.target.closest('.block-editor__head-actions')) return;
+  setBlockEditorCollapsed(!blockEditorCollapsed);
 });
 
 $('#collageLayout').addEventListener('change', syncBlockEditor);
