@@ -120,6 +120,7 @@ const els = {
   blockClose: $('#blockClose'),
   blockZoom: $('#blockZoom'),
   zoomLabel: $('#zoomLabel'),
+  blockViewSummary: $('#blockViewSummary'),
   blockOffsetX: $('#blockOffsetX'),
   blockOffsetY: $('#blockOffsetY'),
   blockReset: $('#blockReset'),
@@ -1271,6 +1272,20 @@ function selectedFrame() {
   return frames.find((f) => f.id === selectedId) || null;
 }
 
+// Compact readout for the collapsed zoom/pan group so a non-default view
+// is still visible without expanding it.
+function viewSummaryText(view) {
+  const zoom = Number(view?.zoom ?? 1);
+  const x = Number(view?.offsetX ?? 0);
+  const y = Number(view?.offsetY ?? 0);
+  if (Math.abs(zoom - 1) < 1e-3 && Math.abs(x) < 1e-3 && Math.abs(y) < 1e-3) return 'default';
+  return `${zoom.toFixed(2)}× · ${x.toFixed(2)}, ${y.toFixed(2)}`;
+}
+
+function syncViewSummary(f) {
+  if (els.blockViewSummary) els.blockViewSummary.textContent = viewSummaryText(f?.view);
+}
+
 function syncBlockEditor() {
   const f = selectedFrame();
   if (!f || exportMode !== 'collage') {
@@ -1292,6 +1307,7 @@ function syncBlockEditor() {
   els.zoomLabel.textContent = `${Number(f.view.zoom).toFixed(2)}×`;
   els.blockOffsetX.value = f.view.offsetX;
   els.blockOffsetY.value = f.view.offsetY;
+  syncViewSummary(f);
   els.frameCaption.value = f.captionText || '';
   els.frameCaption.disabled = Boolean(f.hasBakedCaption);
   els.frameCaptionHint.textContent = f.hasBakedCaption ? 'captured in image' : '';
@@ -1322,7 +1338,10 @@ async function patchSelectedView(patch, { rerender = true } = {}) {
   frames = frames.map((x) => (x.id === f.id ? { ...x, view: { ...x.view, ...patch } } : x));
   await saveFrames(frames);
   const cur = selectedFrame();
-  if (cur) els.zoomLabel.textContent = `${Number(cur.view.zoom).toFixed(2)}×`;
+  if (cur) {
+    els.zoomLabel.textContent = `${Number(cur.view.zoom).toFixed(2)}×`;
+    syncViewSummary(cur);
+  }
   if (rerender) scheduleExport();
 }
 
