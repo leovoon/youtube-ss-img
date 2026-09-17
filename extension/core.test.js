@@ -1,12 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import vm from 'node:vm';
-
-const context = { URL };
-vm.createContext(context);
-vm.runInContext(fs.readFileSync(new URL('./core.js', import.meta.url), 'utf8'), context);
-const { canonicalYouTubeVideoId, chooseActiveVideoIndex, insertionIndexForPoint, stripDropTarget, edgeScrollVelocity, reorderByInsertion, latestCaptureFrame } = context.YTFrameCore;
+import {
+  canonicalYouTubeVideoId,
+  chooseActiveVideoIndex,
+  insertionIndexForPoint,
+  stripDropTarget,
+  edgeScrollVelocity,
+  reorderByInsertion,
+  latestCaptureFrame,
+} from './core.js';
 
 test('latestCaptureFrame returns the newest frame without changing its aspect', () => {
   const frames = [{ id: 'wide', width: 1920, height: 1080 }, { id: 'short', width: 1080, height: 1920 }];
@@ -47,8 +49,7 @@ test('insertionIndexForPoint chooses before or after visual midpoint', () => {
 
 // Four 100px-tall frames stacked at y=0..400; frame 1 (100..200) is dragged.
 const slots = [0, 1, 2, 3].map((index) => ({ index, top: index * 100, bottom: index * 100 + 100 }));
-// Spread to strip the vm-context prototype so strict deepEqual can compare.
-const drop = (...args) => ({ ...stripDropTarget(...args) });
+const drop = stripDropTarget;
 
 test('stripDropTarget counts midpoints above the pointer and reports the gap line', () => {
   // Pointer over the top half of frame 0 → insert before 0, line at its top edge.

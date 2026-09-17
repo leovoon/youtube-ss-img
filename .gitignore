@@ -1,9 +1,13 @@
 /target/
 /release/
+
+# WXT build output and generated types
+.output/
+.wxt/
+
 .DS_Store
 *.log
 node_modules/
-package-lock.json
 codedb.snapshot
 
 # Agent tooling / local session state

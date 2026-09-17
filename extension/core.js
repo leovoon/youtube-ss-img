@@ -1,4 +1,8 @@
-function canonicalYouTubeVideoId(url) {
+// Pure, DOM-free helpers shared by the content script and the side panel.
+// Keep this file free of `chrome.*` and `window` so it stays testable under
+// plain Node (see core.test.js).
+
+export function canonicalYouTubeVideoId(url) {
   try {
     const parsed = new URL(url, 'https://www.youtube.com');
     if (parsed.hostname === 'youtu.be') return parsed.pathname.split('/').filter(Boolean)[0] || null;
@@ -11,7 +15,7 @@ function canonicalYouTubeVideoId(url) {
   }
 }
 
-function chooseActiveVideoIndex(candidates) {
+export function chooseActiveVideoIndex(candidates) {
   const ranked = candidates
     .map((candidate, index) => ({ ...candidate, index }))
     .filter((candidate) => candidate.visible && (candidate.visibleRatio ?? 1) >= 0.25)
@@ -19,7 +23,7 @@ function chooseActiveVideoIndex(candidates) {
   return ranked[0]?.index ?? -1;
 }
 
-function insertionIndexForPoint(index, rect, clientX, clientY) {
+export function insertionIndexForPoint(index, rect, clientX, clientY) {
   const vertical = rect.height >= rect.width;
   const after = vertical
     ? clientY >= rect.top + rect.height / 2
@@ -31,7 +35,7 @@ function insertionIndexForPoint(index, rect, clientX, clientY) {
 // frame (dragged one included; it is ignored). Insertion index is the count
 // of other frames whose vertical midpoint is above the pointer, expressed in
 // the original array's index space so reorderByInsertion can consume it.
-function stripDropTarget(slots, fromIndex, pointerY) {
+export function stripDropTarget(slots, fromIndex, pointerY) {
   const others = slots
     .filter((slot) => slot.index !== fromIndex)
     .sort((a, b) => a.top - b.top);
@@ -48,7 +52,7 @@ function stripDropTarget(slots, fromIndex, pointerY) {
 
 // Signed scroll speed (px/frame) when the pointer is inside the top/bottom
 // edge zone of a scroll container; eases quadratically toward the edge.
-function edgeScrollVelocity(pointerY, top, bottom, zone, maxSpeed) {
+export function edgeScrollVelocity(pointerY, top, bottom, zone, maxSpeed) {
   if (pointerY < top + zone) {
     const t = Math.min(1, (top + zone - pointerY) / zone);
     return -Math.ceil(maxSpeed * t * t);
@@ -60,7 +64,7 @@ function edgeScrollVelocity(pointerY, top, bottom, zone, maxSpeed) {
   return 0;
 }
 
-function reorderByInsertion(items, fromIndex, insertionIndex) {
+export function reorderByInsertion(items, fromIndex, insertionIndex) {
   if (fromIndex < 0 || fromIndex >= items.length || insertionIndex < 0 || insertionIndex > items.length) return items;
   let target = insertionIndex;
   if (target > fromIndex) target -= 1;
@@ -71,16 +75,6 @@ function reorderByInsertion(items, fromIndex, insertionIndex) {
   return next;
 }
 
-function latestCaptureFrame(frames) {
+export function latestCaptureFrame(frames) {
   return frames.at(-1) || null;
 }
-
-globalThis.YTFrameCore = {
-  canonicalYouTubeVideoId,
-  chooseActiveVideoIndex,
-  insertionIndexForPoint,
-  stripDropTarget,
-  edgeScrollVelocity,
-  reorderByInsertion,
-  latestCaptureFrame,
-};

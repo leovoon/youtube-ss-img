@@ -1,5 +1,13 @@
-import { renderLineStack, renderCollage, clearBitmapCache } from './engine.js';
-import { icon as ICON, applyIcons, emptyStateArt } from './icons.js';
+import { renderLineStack, renderCollage, clearBitmapCache } from '../../engine.js';
+import { icon as ICON, applyIcons, emptyStateArt } from '../../icons.js';
+import {
+  canonicalYouTubeVideoId,
+  chooseActiveVideoIndex,
+  insertionIndexForPoint,
+  stripDropTarget,
+  edgeScrollVelocity,
+  reorderByInsertion,
+} from '../../core.js';
 import {
   loadFrames,
   saveFrames as writeFrames,
@@ -7,16 +15,14 @@ import {
   captureFrame,
   appendCapture,
   appendUpload,
-  onFramesChanged,
-  MAX_FRAMES,
-} from './store.js';
+  onFramesChanged, MAX_FRAMES,
+} from '../../store.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
-const { insertionIndexForPoint, stripDropTarget, edgeScrollVelocity, reorderByInsertion } = globalThis.YTFrameCore;
 
 function move(arr, from, to) {
   if (to < 0 || to >= arr.length) return arr;
@@ -116,10 +122,13 @@ const els = {
   uploadInput: $('#uploadInput'),
   // Collage block editor
   blockEditor: $('#blockEditor'),
+  blockHead: $('#blockHead'),
   blockTitle: $('#blockTitle'),
+  blockCollapse: $('#blockCollapse'),
   blockClose: $('#blockClose'),
   blockZoom: $('#blockZoom'),
   zoomLabel: $('#zoomLabel'),
+  blockViewSummary: $('#blockViewSummary'),
   blockOffsetX: $('#blockOffsetX'),
   blockOffsetY: $('#blockOffsetY'),
   blockReset: $('#blockReset'),
@@ -243,7 +252,11 @@ function renderStrip() {
   }
   
   els.emptyState.hidden = true;
-  els.outputStrip.classList.add('active');
+  // The strip is the LineStack editing surface only. renderStrip() runs on
+  // every frame mutation regardless of mode (reorder, caption, delete,
+  // capture, storage echo), so it must not undo the hide that
+  // setExportMode('collage') applied or the strip leaks under the collage.
+  els.outputStrip.classList.toggle('active', exportMode === 'linestack');
   
   const watermark = $('#stackWatermark').value.trim();
 
@@ -1267,6 +1280,20 @@ function selectedFrame() {
   return frames.find((f) => f.id === selectedId) || null;
 }
 
+// Compact readout for the collapsed zoom/pan group so a non-default view
+// is still visible without expanding it.
+function viewSummaryText(view) {
+  const zoom = Number(view?.zoom ?? 1);
+  const x = Number(view?.offsetX ?? 0);
+  const y = Number(view?.offsetY ?? 0);
+  if (Math.abs(zoom - 1) < 1e-3 && Math.abs(x) < 1e-3 && Math.abs(y) < 1e-3) return 'default';
+  return `${zoom.toFixed(2)}× · ${x.toFixed(2)}, ${y.toFixed(2)}`;
+}
+
+function syncViewSummary(f) {
+  if (els.blockViewSummary) els.blockViewSummary.textContent = viewSummaryText(f?.view);
+}
+
 function syncBlockEditor() {
   const f = selectedFrame();
   if (!f || exportMode !== 'collage') {
@@ -1288,6 +1315,7 @@ function syncBlockEditor() {
   els.zoomLabel.textContent = `${Number(f.view.zoom).toFixed(2)}×`;
   els.blockOffsetX.value = f.view.offsetX;
   els.blockOffsetY.value = f.view.offsetY;
+  syncViewSummary(f);
   els.frameCaption.value = f.captionText || '';
   els.frameCaption.disabled = Boolean(f.hasBakedCaption);
   els.frameCaptionHint.textContent = f.hasBakedCaption ? 'captured in image' : '';
@@ -1318,7 +1346,10 @@ async function patchSelectedView(patch, { rerender = true } = {}) {
   frames = frames.map((x) => (x.id === f.id ? { ...x, view: { ...x.view, ...patch } } : x));
   await saveFrames(frames);
   const cur = selectedFrame();
-  if (cur) els.zoomLabel.textContent = `${Number(cur.view.zoom).toFixed(2)}×`;
+  if (cur) {
+    els.zoomLabel.textContent = `${Number(cur.view.zoom).toFixed(2)}×`;
+    syncViewSummary(cur);
+  }
   if (rerender) scheduleExport();
 }
 
@@ -1378,6 +1409,26 @@ els.blockClose.addEventListener('click', () => {
   selectedId = null;
   syncBlockEditor();
   buildBlockOverlay();
+});
+
+// Collapse the editor down to its header so it stops covering the collage.
+// The choice persists across block selections; the DOM is static so the
+// class survives syncBlockEditor().
+let blockEditorCollapsed = false;
+function setBlockEditorCollapsed(collapsed) {
+  blockEditorCollapsed = collapsed;
+  els.blockEditor.classList.toggle('is-collapsed', collapsed);
+  els.blockCollapse.setAttribute('aria-expanded', String(!collapsed));
+  els.blockCollapse.title = collapsed ? 'Expand' : 'Collapse';
+}
+els.blockCollapse.addEventListener('click', (ev) => {
+  ev.stopPropagation();
+  setBlockEditorCollapsed(!blockEditorCollapsed);
+});
+// The title row doubles as a toggle; the action buttons opt out.
+els.blockHead.addEventListener('click', (ev) => {
+  if (ev.target.closest('.block-editor__head-actions')) return;
+  setBlockEditorCollapsed(!blockEditorCollapsed);
 });
 
 $('#collageLayout').addEventListener('change', syncBlockEditor);

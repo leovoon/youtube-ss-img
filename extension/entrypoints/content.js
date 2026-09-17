@@ -1,6 +1,11 @@
 // Content script for YouTube page
-(function () {
-  const { canonicalYouTubeVideoId, chooseActiveVideoIndex } = globalThis.YTFrameCore;
+import { defineContentScript } from '#imports';
+import { canonicalYouTubeVideoId, chooseActiveVideoIndex } from '../core.js';
+
+export default defineContentScript({
+  matches: ['https://*.youtube.com/*'],
+  main() {
+  // NOTE: body kept at its pre-WXT indentation during the migration wrap.
   function getVideoElement() {
     const viewportCenter = window.innerHeight / 2;
     const videos = [...document.querySelectorAll('video')];
@@ -352,4 +357,5 @@
   });
 
   window.youtubeFrameGrabber = { captureFrame };
-})();
+  },
+});
