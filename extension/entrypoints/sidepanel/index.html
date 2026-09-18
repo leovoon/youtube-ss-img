@@ -16,6 +16,10 @@
       <button id="uploadBtn" class="secondary" data-icon="image-add" title="Add image — or paste / drop">Add</button>
       <input type="file" id="uploadInput" accept="image/png,image/jpeg,image/webp" hidden>
       <div class="capture-bar__spacer"></div>
+      <label class="capture-bar__check" for="dedupToggle" title="Auto: skip repeated subtitles and identical frames">
+        <input type="checkbox" id="dedupToggle" checked>
+        <span>Skip dup</span>
+      </label>
       <div class="capture-bar__field">
         <label for="interval">Every</label>
         <input id="interval" type="number" min="0.5" max="60" step="0.5" value="1" class="interval-input" aria-label="Capture interval in seconds">

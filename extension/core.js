@@ -78,3 +78,68 @@ export function reorderByInsertion(items, fromIndex, insertionIndex) {
 export function latestCaptureFrame(frames) {
   return frames.at(-1) || null;
 }
+
+// ---------------------------------------------------------------------------
+// Auto-capture dedup — pure helpers. The side panel feeds these a caption
+// string (already extracted from YouTube's caption DOM at capture time, so no
+// OCR is needed) plus a difference hash of the frame's pixels, and skips
+// captures that repeat the previous one.
+// ---------------------------------------------------------------------------
+
+// Hamming-distance budget (of 64 bits) below which two frames count as the
+// same image. Lossless captures of a static scene land at 0-2; real cuts land
+// well above 20.
+export const AUTO_DEDUP_HASH_THRESHOLD = 6;
+
+// Collapse whitespace so captions that only wrapped differently compare equal.
+export function normalizeCaptionText(text) {
+  return String(text ?? '').replace(/\s+/g, ' ').trim();
+}
+
+// Difference hash (dHash) over a width x height luminance grid (0-255 per
+// pixel, row-major). Standard 9x8 grid -> one bit per horizontal pixel pair
+// -> 64-bit hash returned as a '0'/'1' string. Returns null for bad input.
+export function dHashFromGray(gray, width = 9, height = 8) {
+  if (!gray || gray.length < width * height) return null;
+  let bits = '';
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width - 1; x++) {
+      bits += gray[y * width + x + 1] > gray[y * width + x] ? '1' : '0';
+    }
+  }
+  return bits;
+}
+
+// Number of differing positions between two equal-length bit strings.
+// Non-comparable input yields Infinity so callers treat it as "not a match".
+export function hammingDistance(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string' || !a.length || a.length !== b.length) {
+    return Number.POSITIVE_INFINITY;
+  }
+  let d = 0;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) d += 1;
+  }
+  return d;
+}
+
+// Decide whether an auto-captured frame duplicates the previous kept one.
+// `previous`/`next` = { captionText: string, hash: string|null }.
+//  - New subtitle text => keep (new content even if the scene is static).
+//  - Caption appeared or disappeared => keep.
+//  - Same subtitle text (or both blank) => keep only when the pixels moved
+//    more than `threshold` bits, so a scene change under the same caption is
+//    still captured while a paused/static video is skipped.
+export function isDuplicateAutoCapture(previous, next, threshold = AUTO_DEDUP_HASH_THRESHOLD) {
+  if (!previous || !next) return false;
+  const prevCaption = normalizeCaptionText(previous.captionText);
+  const nextCaption = normalizeCaptionText(next.captionText);
+  if (prevCaption && nextCaption) {
+    if (prevCaption !== nextCaption) return false; // new subtitle line
+  } else if (!prevCaption !== !nextCaption) {
+    return false; // caption appeared or disappeared
+  }
+  const distance = hammingDistance(previous.hash, next.hash);
+  if (!Number.isFinite(distance)) return false; // missing/uncomparable hash
+  return distance <= threshold;
+}

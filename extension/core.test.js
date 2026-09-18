@@ -8,6 +8,11 @@ import {
   edgeScrollVelocity,
   reorderByInsertion,
   latestCaptureFrame,
+  AUTO_DEDUP_HASH_THRESHOLD,
+  normalizeCaptionText,
+  dHashFromGray,
+  hammingDistance,
+  isDuplicateAutoCapture,
 } from './core.js';
 
 test('latestCaptureFrame returns the newest frame without changing its aspect', () => {
@@ -105,4 +110,76 @@ test('reorderByInsertion moves one frame while preserving frame-owned settings',
   assert.deepEqual([...result].map((frame) => frame.id), ['a', 'c', 'd', 'b']);
   assert.equal(result[3], frames[1]);
   assert.deepEqual([...reorderByInsertion(frames, 2, 2)], frames);
+});
+
+test('normalizeCaptionText collapses wrapping and stray whitespace', () => {
+  assert.equal(normalizeCaptionText('  hello   world  '), 'hello world');
+  assert.equal(normalizeCaptionText('hello\n  world'), 'hello world');
+  assert.equal(normalizeCaptionText(null), '');
+  assert.equal(normalizeCaptionText(undefined), '');
+});
+
+test('dHashFromGray encodes horizontal brightness gradients as bits', () => {
+  // 9x8 increasing gradient: every right neighbor is brighter -> all 1s.
+  const rising = new Array(9 * 8).fill(0).map((_, i) => i % 9);
+  assert.equal(dHashFromGray(rising), '1'.repeat(64));
+  // Falling gradient -> all 0s.
+  const falling = new Array(9 * 8).fill(0).map((_, i) => 8 - (i % 9));
+  assert.equal(dHashFromGray(falling), '0'.repeat(64));
+  // Too little pixel data -> null, callers treat as uncomparable.
+  assert.equal(dHashFromGray([1, 2, 3]), null);
+  assert.equal(dHashFromGray(null), null);
+});
+
+test('hammingDistance counts differing bits and rejects uncomparable input', () => {
+  assert.equal(hammingDistance('0000', '0000'), 0);
+  assert.equal(hammingDistance('0000', '1111'), 4);
+  assert.equal(hammingDistance('0101', '0011'), 2);
+  assert.equal(hammingDistance('', ''), Number.POSITIVE_INFINITY);
+  assert.equal(hammingDistance('01', '011'), Number.POSITIVE_INFINITY);
+  assert.equal(hammingDistance('01', null), Number.POSITIVE_INFINITY);
+});
+
+test('isDuplicateAutoCapture skips repeated subtitles and static frames only', () => {
+  const hash = (bits) => bits; // 64-char bit strings
+  const same = hash('0'.repeat(64));
+  const moved = hash(('1'.repeat(10) + '0'.repeat(54)));
+
+  // No previous frame -> never a duplicate.
+  assert.equal(isDuplicateAutoCapture(null, { captionText: 'hi', hash: same }), false);
+  // Same caption, identical pixels -> duplicate.
+  assert.equal(
+    isDuplicateAutoCapture({ captionText: 'hi', hash: same }, { captionText: 'hi', hash: same }),
+    true
+  );
+  // Same caption, but the scene changed underneath -> keep.
+  assert.equal(
+    isDuplicateAutoCapture({ captionText: 'hi', hash: same }, { captionText: 'hi', hash: moved }),
+    false
+  );
+  // Whitespace-only caption difference still counts as the same subtitle.
+  assert.equal(
+    isDuplicateAutoCapture({ captionText: 'hi there', hash: same }, { captionText: 'hi\n there ', hash: same }),
+    true
+  );
+  // New subtitle text -> keep even if pixels match (static scene).
+  assert.equal(
+    isDuplicateAutoCapture({ captionText: 'old line', hash: same }, { captionText: 'new line', hash: same }),
+    false
+  );
+  // Caption appeared or disappeared -> keep.
+  assert.equal(isDuplicateAutoCapture({ captionText: 'line', hash: same }, { captionText: '', hash: same }), false);
+  assert.equal(isDuplicateAutoCapture({ captionText: '', hash: same }, { captionText: 'line', hash: same }), false);
+  // No captions on either side: static frame -> duplicate, moving video -> keep.
+  assert.equal(isDuplicateAutoCapture({ captionText: '', hash: same }, { captionText: '', hash: same }), true);
+  assert.equal(isDuplicateAutoCapture({ captionText: '', hash: same }, { captionText: '', hash: moved }), false);
+  // Missing hash -> cannot compare -> keep.
+  assert.equal(isDuplicateAutoCapture({ captionText: '', hash: null }, { captionText: '', hash: same }), false);
+  assert.equal(isDuplicateAutoCapture({ captionText: 'hi', hash: same }, { captionText: 'hi', hash: null }), false);
+  // Custom threshold: 10 flipped bits is a dup at 10 but not at the default 6.
+  assert.equal(isDuplicateAutoCapture({ captionText: '', hash: same }, { captionText: '', hash: moved }, 10), true);
+  assert.equal(
+    isDuplicateAutoCapture({ captionText: '', hash: same }, { captionText: '', hash: moved }, AUTO_DEDUP_HASH_THRESHOLD),
+    false
+  );
 });

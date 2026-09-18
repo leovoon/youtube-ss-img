@@ -7,6 +7,8 @@ import {
   stripDropTarget,
   edgeScrollVelocity,
   reorderByInsertion,
+  dHashFromGray,
+  isDuplicateAutoCapture,
 } from '../../core.js';
 import {
   loadFrames,
@@ -15,6 +17,8 @@ import {
   captureFrame,
   appendCapture,
   appendUpload,
+  loadSettings,
+  saveSettings,
   onFramesChanged, MAX_FRAMES,
 } from '../../store.js';
 
@@ -66,6 +70,12 @@ let autoVideoId = null;
 let exportMode = 'linestack';
 let selectedId = null;
 
+// Auto-capture dedup: toggle state + fingerprint of the last KEPT frame
+// (caption text + pixel dHash). Reset at start/stop so a fresh run never
+// compares against a previous session's frames.
+let autoDedupEnabled = true;
+let lastAutoCapture = null;
+
 let lastStackBlobs = [];
 let lastCollageBlob = null;
 let lastCollageLayout = null;
@@ -107,6 +117,7 @@ const els = {
   captureBtn: $('#captureBtn'),
   autoBtn: $('#autoBtn'),
   interval: $('#interval'),
+  dedupToggle: $('#dedupToggle'),
   ratio: null, // removed — per-frame crop only
   ratioLabel: null,
   downloadExportBtn: $('#downloadExportBtn'),
@@ -788,6 +799,37 @@ els.outputStrip.addEventListener('lostpointercapture', (ev) => {
 // ---------------------------------------------------------------------------
 // Capture
 // ---------------------------------------------------------------------------
+// Downscale a captured frame (data URL) to a 9x8 luminance grid and hash it
+// with dHashFromGray. Runs in well under a millisecond per tick; returns null
+// if the image cannot be decoded so the dedup check degrades to caption-only.
+const DEDUP_GRID_W = 9;
+const DEDUP_GRID_H = 8;
+let dedupCanvas = null;
+function computeFrameHash(url) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onerror = () => resolve(null);
+    img.onload = () => {
+      try {
+        if (!dedupCanvas) dedupCanvas = document.createElement('canvas');
+        dedupCanvas.width = DEDUP_GRID_W;
+        dedupCanvas.height = DEDUP_GRID_H;
+        const ctx = dedupCanvas.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(img, 0, 0, DEDUP_GRID_W, DEDUP_GRID_H);
+        const data = ctx.getImageData(0, 0, DEDUP_GRID_W, DEDUP_GRID_H).data;
+        const gray = new Uint8Array(DEDUP_GRID_W * DEDUP_GRID_H);
+        for (let i = 0; i < gray.length; i++) {
+          gray[i] = (data[i * 4] * 299 + data[i * 4 + 1] * 587 + data[i * 4 + 2] * 114) / 1000;
+        }
+        resolve(dHashFromGray(gray, DEDUP_GRID_W, DEDUP_GRID_H));
+      } catch {
+        resolve(null);
+      }
+    };
+    img.src = url;
+  });
+}
+
 async function captureAndStore({ auto = false } = {}) {
   els.captureBtn.disabled = true;
   try {
@@ -800,6 +842,19 @@ async function captureAndStore({ auto = false } = {}) {
         return;
       }
       autoVideoId ||= response.videoId;
+    }
+    // Auto dedup: skip frames that repeat the last kept one — same subtitle
+    // text on near-identical pixels, or (with no captions) identical pixels.
+    if (auto && autoDedupEnabled) {
+      const candidate = {
+        captionText: response.captionText || '',
+        hash: await computeFrameHash(response.url),
+      };
+      if (isDuplicateAutoCapture(lastAutoCapture, candidate)) {
+        setStatus('Skipped duplicate.', 'ok');
+        return;
+      }
+      lastAutoCapture = candidate;
     }
     // Bake the preset type + crop in before the frame is first persisted, so
     // it never exists (or renders) as a full-height scene that then shrinks
@@ -846,6 +901,7 @@ function stopAuto() {
   clearTimeout(autoTimer);
   autoTimer = null;
   autoVideoId = null;
+  lastAutoCapture = null;
   els.autoBtn.innerHTML = `${ICON('play')}<span class="btxt">Auto</span>`;
   els.autoBtn.classList.add('secondary');
   els.autoBtn.classList.remove('auto-btn--active');
@@ -855,6 +911,7 @@ function stopAuto() {
 function startAuto() {
   autoRunning = true;
   autoVideoId = null;
+  lastAutoCapture = null;
   els.autoBtn.innerHTML = `${ICON('stop')}<span class="btxt">Stop</span>`;
   els.autoBtn.classList.remove('secondary');
   els.autoBtn.classList.add('auto-btn--active');
@@ -1676,6 +1733,27 @@ els.outputStrip.addEventListener('wheel', (ev) => {
 applyIcons();
 applyPreviewZoom();
 setExportMode('linestack');
+
+// Auto-dedup toggle: persisted with the other panel settings.
+if (els.dedupToggle) {
+  els.dedupToggle.addEventListener('change', async () => {
+    autoDedupEnabled = els.dedupToggle.checked;
+    if (!autoDedupEnabled) lastAutoCapture = null; // don't compare against stale state when re-enabled
+    try {
+      await saveSettings({ ...(await loadSettings()), skipDuplicates: autoDedupEnabled });
+    } catch (err) {
+      console.warn('Could not persist dedup setting:', err);
+    }
+  });
+  loadSettings()
+    .then((settings) => {
+      if (typeof settings.skipDuplicates === 'boolean') {
+        autoDedupEnabled = settings.skipDuplicates;
+        els.dedupToggle.checked = settings.skipDuplicates;
+      }
+    })
+    .catch(() => {});
+}
 
 loadFrames().then((loaded) => {
   frames = loaded;
