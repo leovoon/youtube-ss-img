@@ -16,9 +16,9 @@ export default defineConfig({
   browser: 'chrome',
   manifestVersion: 3,
   manifest: {
-    name: 'YouTube LineStack Studio',
+    name: 'YouTube Screenshot with Subtitles — Frame & Caption Capture',
     description:
-      'Capture YouTube frames with captions, then export subtitle-preserving LineStack images and collages. Runs locally.',
+      'Capture YouTube screenshots with subtitles baked in. Grab video frames with captions/lyrics, export stacked collages. 100% local.',
     icons: {
       16: 'icons/icon16.png',
       32: 'icons/icon32.png',
@@ -26,7 +26,7 @@ export default defineConfig({
       128: 'icons/icon128.png',
     },
     action: {
-      default_title: 'YouTube LineStack Studio',
+      default_title: 'YouTube Screenshot with Subtitles',
       default_icon: {
         16: 'icons/icon16.png',
         32: 'icons/icon32.png',

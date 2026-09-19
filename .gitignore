@@ -14,5 +14,25 @@ codedb.snapshot
 .graff/
 .harness/
 
+# Chrome Web Store preparation assets (local only, not part of the open-source code)
+CHROME_WEB_STORE_ALPHA.md
+store/
+store-assets/
+
+# Website working plans (finished site is live; keep repo lean)
+docs/site-polish-plan.md
+docs/website-development-plan.md
+
+# AI media generation metadata
+assets/
+
+# Marketing artwork working files
+youtube-frame-grab-promo-master.png
+resize-this.png
+resize-this-contained-1280x800.png
+
+# Android companion experiment (build artifacts too large for this repo)
+android/
+
 # Coverage artifacts
 *.profraw
